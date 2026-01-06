@@ -370,9 +370,73 @@ namespace StringDiagram
             if (c != null)
             {
                 c.Width = (double)e.NewValue;
+                c.ruler.Width = (double)e.NewValue;
+                c.Root.Width = (double)e.NewValue;
+                c.RedrawSections();
             }
         }
 
+
+        #endregion
+
+        #region ContainerWidthPX (px -> WPF DIP)
+
+        public double ContainerWidthPX
+        {
+            get => (double)GetValue(ContainerWidthPXProperty);
+            set => SetValue(ContainerWidthPXProperty, value);
+        }
+
+        public static readonly DependencyProperty ContainerWidthPXProperty =
+            DependencyProperty.Register(
+                nameof(ContainerWidthPX),
+                typeof(double),
+                typeof(StringDiagramHorizontal),
+                new PropertyMetadata(600d, OnContainerWidthPXChanged));
+
+        private static void OnContainerWidthPXChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var c = (StringDiagramHorizontal)d;
+            if (c == null) return;
+
+            c.ApplyContainerWidthFromPx();
+        }
+
+        private bool _isLoaded;
+
+        private void ApplyContainerWidthFromPx()
+        {
+            if (!_isLoaded)
+            {
+                SetWidthDipFromPx();
+                return;
+            }
+            SetWidthDipFromPx();
+            RedrawSections();
+        }
+
+        private void SetWidthDipFromPx()
+        {
+            var dip = PxToDip(ContainerWidthPX);
+            if (dip <= 0) return;
+
+            Width = dip;
+
+            if (Root != null) Root.Width = dip;
+            if (ruler != null) ruler.Width = dip;
+        }
+
+        private double PxToDip(double px)
+        {
+            if (px <= 0) return 0;
+
+            // WPF：1 DIP = 1/96 inch；px 与 DIP 的比例取决于当前 dpi
+            var dpi = VisualTreeHelper.GetDpi(this);
+            var dpiX = dpi.PixelsPerInchX;
+            if (dpiX <= 0) dpiX = 96.0;
+
+            return px * 96.0 / dpiX;
+        }
 
         #endregion
 
@@ -758,13 +822,21 @@ namespace StringDiagram
             }
         }
 
+
+        public void SetLeftMargin(double LeftWidth)
+        {
+            marginLeft = LeftWidth;
+            RedrawSections();
+        }
+
         #endregion
 
 
         #endregion
 
         #region 绘制（水平）
-
+        private double marginLeft = 25;
+        private double marginRight = 25;
         private void RedrawSections()
         {
             if (Root == null)
@@ -783,9 +855,7 @@ namespace StringDiagram
             double rootHeight = Root.ActualHeight > 0 ? Root.ActualHeight : Root.Height;
             if (rootWidth <= 0 || rootHeight <= 0)
                 return;
-
-            double marginLeft = 25;
-            double marginRight = 25;
+            
             double marginY = 10;
 
             double usableWidth = rootWidth - marginLeft - marginRight;
@@ -1240,7 +1310,7 @@ namespace StringDiagram
         /// </summary>
         private void DrawRulerHorizontal_PerCT()
         {
-            double rulerWidth = Root.ActualWidth > 0 ? Root.ActualWidth : ConTainerWidth;
+            double rulerWidth = Root.Width > 0 ? Root.Width : ConTainerWidth;
             double rulerHeight = ruler.ActualHeight > 0 ? ruler.ActualHeight : 30;
 
             ruler.Width = rulerWidth;
@@ -1469,6 +1539,7 @@ namespace StringDiagram
             var img = new DrawingImage(dg);
             img.Freeze();
             _connectorIconSource = img;
+            VisualTreeHelper.GetDpi(this);
         }
 
         private static IEnumerable<GeometryDrawing> GetAllGeometryDrawings(Drawing drawing)
@@ -1488,6 +1559,8 @@ namespace StringDiagram
                 }
             }
         }
+
+
 
 
         #endregion

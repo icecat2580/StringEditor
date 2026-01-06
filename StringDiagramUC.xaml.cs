@@ -31,6 +31,19 @@ namespace StringDiagram
             InitializeComponent();
             CreateChildren();
             UpdateContent();
+            this.SizeChanged += StringDiagramUC_SizeChanged;
+        }
+
+        private void StringDiagramUC_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (Orientation == Orientation.Vertical && _Vertical != null)
+            {
+                _Vertical.ConTainerHeight = ConTainerHeight;
+            }
+            else if (Orientation == Orientation.Horizontal && _Horizontal != null)
+            {
+                _Horizontal.ConTainerWidth = this.ActualWidth;
+            }
         }
 
         private void CreateChildren()
@@ -618,8 +631,9 @@ namespace StringDiagram
         public void SetSelectedSection(int CTindex, int Sectionindex, bool RaiseEvent = false)
         
            =>_current.SetSelectedSection(CTindex, Sectionindex, RaiseEvent);
-        
 
+        public void SetLeftMargin(double LeftWidth) 
+            =>_Horizontal.SetLeftMargin(LeftWidth);
         #endregion
 
 

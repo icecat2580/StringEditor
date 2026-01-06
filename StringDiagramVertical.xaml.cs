@@ -860,6 +860,11 @@ namespace StringDiagram
                 rightBottomPoint = new Point(lastRegion.Bounds.Right, lastRegion.Bounds.Bottom);
             }
         }
+        //设置左边距
+        public void SetLeftMargin(double LeftWidth)
+        {
+            return;
+        }
         #endregion
 
 
@@ -1623,6 +1628,8 @@ namespace StringDiagram
                 }
             }
         }
+
+
 
 
 

@@ -34,14 +34,17 @@
         <Canvas
             x:Name="ruler"
             Grid.Row="0"
+            Width="{Binding ElementName=UC, Path=Width}"
             Height="30"
-            />
+            Background="Transparent" />
 
         <!--  画图用的根容器（在下方）  -->
         <Canvas
             x:Name="Root"
             Grid.Row="1"
+            Width="{Binding ElementName=UC, Path=Width}"
             Height="70"
+            Background="Transparent"
             SnapsToDevicePixels="True" />
     </Grid>
 </UserControl>

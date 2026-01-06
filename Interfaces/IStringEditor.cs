@@ -74,6 +74,8 @@ namespace StringDiagram.Interfaces
         void ExportImage(double width, double height, string ImagePath);
         //获取绘图区域
         void   GetDrawIngRegion(out Point LeftBottomPoint,out Point RightBottomPoint);
+        //设置左侧边距
+        void SetLeftMargin(double LeftWidth);
 
     }
 }
