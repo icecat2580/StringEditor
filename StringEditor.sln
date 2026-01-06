@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StringDiagram", "StringDiag
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo", "..\LibaryTest\Demo\Demo.csproj", "{DB06F151-CCEA-4C9E-85B3-C68485750E4E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "console", "..\console\console.csproj", "{8C64CED2-96F7-4FC8-BE0F-EEC3A312966D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{DB06F151-CCEA-4C9E-85B3-C68485750E4E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DB06F151-CCEA-4C9E-85B3-C68485750E4E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DB06F151-CCEA-4C9E-85B3-C68485750E4E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C64CED2-96F7-4FC8-BE0F-EEC3A312966D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C64CED2-96F7-4FC8-BE0F-EEC3A312966D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C64CED2-96F7-4FC8-BE0F-EEC3A312966D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C64CED2-96F7-4FC8-BE0F-EEC3A312966D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -50,6 +50,7 @@
   <ItemGroup>
     <Compile Include="Enums\ImageType.cs" />
     <Compile Include="Enums\Orientation.cs" />
+    <Compile Include="Enums\RulerModel.cs" />
     <Compile Include="Enums\TopIconKind.cs" />
     <Compile Include="Interfaces\IStringEditor.cs" />
     <Compile Include="Models\CtTopImageInfo.cs" />

@@ -34,15 +34,20 @@ namespace StringDiagram.Interfaces
         double fontSize { get; set; }
         //显示单位
         string DisplayUnit { get; set; }
+        //标尺绘制模式
+        RulerMode RulerMode { get; set; }
         //是否启用分选选中功能
         bool EnableSelectedSection { get; set; }
+        
         //最小壁厚系数
         double MinWallFracTotal { get; set; }
         //最大壁厚系数
         double MaxWallFracTotal { get; set; }
         //选中分段时触发委托
         event Action<int, int> OnSelectedSectionhandler;
-     
+
+        //分段选中
+        void SetSelectedSection(int CTindex, int Sectionindex,bool RaiseEvent=false);
         //增加分段
         void InsertSection(int Stindex,int Sectionindex, double length, double OuterDiameterOfReelEnd, double InnerDiameterOfReelEnd, double OuterDiameterOfFreeEnd, double InnerDiameterOfFreeEnd);
         //删除分段
@@ -69,7 +74,6 @@ namespace StringDiagram.Interfaces
         void ExportImage(double width, double height, string ImagePath);
         //获取绘图区域
         void   GetDrawIngRegion(out Point LeftBottomPoint,out Point RightBottomPoint);
-
 
     }
 }

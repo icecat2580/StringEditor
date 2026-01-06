@@ -55,7 +55,7 @@ namespace StringDiagram
         }
 
 
-        #region Orientation 依赖属性
+        #region  依赖属性转发到对应的内部控件
 
         #region MinWallFracTotal
 
@@ -109,13 +109,13 @@ namespace StringDiagram
         }
         #endregion
 
-
+        #region Orientation
         public static readonly DependencyProperty OrientationProperty =
-            DependencyProperty.Register(
-                nameof(Orientation),
-                typeof(Orientation),
-                typeof(StringDiagramUC),
-                new PropertyMetadata(Orientation.Horizontal, OnOrientationChanged));
+    DependencyProperty.Register(
+        nameof(Orientation),
+        typeof(Orientation),
+        typeof(StringDiagramUC),
+        new PropertyMetadata(Orientation.Horizontal, OnOrientationChanged));
 
         public Orientation Orientation
         {
@@ -137,12 +137,35 @@ namespace StringDiagram
                 host._Horizontal.ConTainerWidth = host.ConTainerWidth;
             }
         }
-
         #endregion
 
+        #region RulerMode
 
-        #region 颜色 & 样式依赖属性（转发到内部控件）
 
+        public RulerMode RulerMode
+        {
+            get { return (RulerMode)GetValue(RulerModeProperty); }
+            set { SetValue(RulerModeProperty, value); }
+        }
+
+        public static readonly DependencyProperty RulerModeProperty =
+            DependencyProperty.Register(
+                "RulerMode",
+                typeof(RulerMode),
+                typeof(StringDiagramUC),
+                new PropertyMetadata(RulerMode.PerCT));
+
+        private static void OnRulerModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var host = (StringDiagramUC)d;
+            var model = (RulerMode)e.NewValue;
+
+            host._Vertical?.SetValue(StringDiagramVertical.RulerModeProperty, model);
+            host._Horizontal?.SetValue(StringDiagramHorizontal.RulerModeProperty, model);
+        }
+        #endregion
+
+        #region SectionSelectedBrush
         // 分段选中颜色
         public static readonly DependencyProperty SectionSelectedBrushProperty =
             DependencyProperty.Register(
@@ -165,8 +188,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.SectionSelectedBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.SectionSelectedBrushProperty, brush);
         }
+        #endregion
 
-
+        #region SectionBrush
         // 分段颜色
         public static readonly DependencyProperty SectionBrushProperty =
             DependencyProperty.Register(
@@ -190,8 +214,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.SectionBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.SectionBrushProperty, brush);
         }
+        #endregion
 
-
+        #region ReelBrush
         // 滚筒颜色
         public static readonly DependencyProperty ReelBrushProperty =
             DependencyProperty.Register(
@@ -214,8 +239,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.ReelBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.ReelBrushProperty, brush);
         }
+        #endregion
 
-
+        #region ConnectorBrush
         // 连接器颜色
         public static readonly DependencyProperty ConnectorBrushProperty =
             DependencyProperty.Register(
@@ -238,8 +264,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.ConnectorBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.ConnectorBrushProperty, brush);
         }
+        #endregion
 
-
+        #region WeldBrush
         // 焊缝颜色
         public static readonly DependencyProperty WeldBrushProperty =
             DependencyProperty.Register(
@@ -262,11 +289,10 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.WeldBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.WeldBrushProperty, brush);
         }
+        #endregion
 
-
+        #region FreeWeldBrush
         //自由焊缝颜色
-
-
         public Brush FreeWeldBrush
         {
             get { return (Brush)GetValue(FreeWeldBrushProperty); }
@@ -276,9 +302,9 @@ namespace StringDiagram
         public static readonly DependencyProperty FreeWeldBrushProperty =
             DependencyProperty.Register(
                 "FreeWeldBrush",
-                typeof(Brush), 
-                typeof(StringDiagramUC), 
-                new PropertyMetadata(Brushes.Black,OnFreeWeldBrushChanged));
+                typeof(Brush),
+                typeof(StringDiagramUC),
+                new PropertyMetadata(Brushes.Black, OnFreeWeldBrushChanged));
 
 
         private static void OnFreeWeldBrushChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -289,8 +315,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.FreeWeldBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.FreeWeldBrushProperty, brush);
         }
+        #endregion
 
-
+        #region InsideBrush
         // 管内颜色
         public static readonly DependencyProperty InsideBrushProperty =
             DependencyProperty.Register(
@@ -313,8 +340,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.InsideBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.InsideBrushProperty, brush);
         }
+        #endregion
 
-
+        #region ContainerBrush
         // 容器背景色（顺便绑定到 Host 根 Grid 的 Background）
         public static readonly DependencyProperty ContainerBrushProperty =
             DependencyProperty.Register(
@@ -338,8 +366,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.ContainerBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.ContainerBrushProperty, brush);
         }
+        #endregion
 
-
+        #region LineBrush
         // 绘制线条颜色
         public static readonly DependencyProperty LineBrushProperty =
             DependencyProperty.Register(
@@ -362,8 +391,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.LineBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.LineBrushProperty, brush);
         }
+        #endregion
 
-
+        #region LineWeight
         // 线宽
         public static readonly DependencyProperty LineWeightProperty =
             DependencyProperty.Register(
@@ -386,8 +416,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.LineWeightProperty, v);
             host._Horizontal?.SetValue(StringDiagramHorizontal.LineWeightProperty, v);
         }
+        #endregion
 
-
+        #region FontBrush
         // 标尺字体颜色
         public static readonly DependencyProperty FontBrushProperty =
             DependencyProperty.Register(
@@ -410,8 +441,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.FontBrushProperty, brush);
             host._Horizontal?.SetValue(StringDiagramHorizontal.FontBrushProperty, brush);
         }
+        #endregion
 
-
+        #region fontSize
         // 标尺字体大小
         public static readonly DependencyProperty fontSizeProperty =
             DependencyProperty.Register(
@@ -434,11 +466,9 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.fontSizeProperty, v);
             host._Horizontal?.SetValue(StringDiagramHorizontal.fontSizeProperty, v);
         }
+        #endregion
 
-
-
-
-
+        #region DisplayUnit
         public string DisplayUnit
         {
             get { return (string)GetValue(DisplayUnitProperty); }
@@ -447,10 +477,10 @@ namespace StringDiagram
 
         public static readonly DependencyProperty DisplayUnitProperty =
             DependencyProperty.Register(
-                "DisplayUnit", 
+                "DisplayUnit",
                 typeof(string),
-                typeof(StringDiagramUC), 
-                new PropertyMetadata("m",OnDisplayUnitChanged));
+                typeof(StringDiagramUC),
+                new PropertyMetadata("m", OnDisplayUnitChanged));
 
         private static void OnDisplayUnitChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -460,14 +490,15 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.DisplayUnitProperty, v);
             host._Horizontal?.SetValue(StringDiagramHorizontal.DisplayUnitProperty, v);
         }
+        #endregion
 
-
+        #region EnableSelectedSection
         // 是否启用分段选中功能
         public static readonly DependencyProperty EnableSelectedSectionProperty =
             DependencyProperty.Register(
                 "EnableSelectedSection",
-                typeof(bool), 
-                typeof(StringDiagramUC), 
+                typeof(bool),
+                typeof(StringDiagramUC),
                 new PropertyMetadata(true, OnEnableSelectedSectionChanged));
 
 
@@ -486,16 +517,17 @@ namespace StringDiagram
             host._Vertical?.SetValue(StringDiagramVertical.EnableSelectedSectionProperty, v);
             host._Horizontal?.SetValue(StringDiagramHorizontal.EnableSelectedSectionProperty, v);
         }
+        #endregion
 
-
+        #region ConTainerHeight
 
         // 容器宽度
         public static readonly DependencyProperty ConTainerHeightProperty =
             DependencyProperty.Register(
-                "ConTainerHeight", 
+                "ConTainerHeight",
                 typeof(double),
-                typeof(StringDiagramUC), 
-                new PropertyMetadata(600D,OnContainerHeightChanged));
+                typeof(StringDiagramUC),
+                new PropertyMetadata(600D, OnContainerHeightChanged));
 
         private static void OnContainerHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -511,9 +543,9 @@ namespace StringDiagram
             set { SetValue(ConTainerHeightProperty, value); }
         }
 
+        #endregion
 
-
-
+        #region ConTainerWidth
         // 容器宽度
         public double ConTainerWidth
         {
@@ -523,9 +555,9 @@ namespace StringDiagram
 
         public static readonly DependencyProperty ConTainerWidthProperty =
             DependencyProperty.Register(
-                "ConTainerWidth", 
-                typeof(double), 
-                typeof(StringDiagramUC), 
+                "ConTainerWidth",
+                typeof(double),
+                typeof(StringDiagramUC),
                 new PropertyMetadata(600D, OnConTainerWidthChanged));
 
         private static void OnConTainerWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -535,12 +567,9 @@ namespace StringDiagram
 
             host._Horizontal?.SetValue(StringDiagramHorizontal.ConTainerWidthProperty, v);
         }
-
-
-
         #endregion
 
-
+        #endregion
 
 
         #region IStringEditor 实现 —— 全部转发给 _current
@@ -586,9 +615,14 @@ namespace StringDiagram
         public void GetDrawIngRegion(out Point leftBottom, out Point rightBottom)
             => _current.GetDrawIngRegion(out leftBottom, out rightBottom);
 
+        public void SetSelectedSection(int CTindex, int Sectionindex, bool RaiseEvent = false)
+        
+           =>_current.SetSelectedSection(CTindex, Sectionindex, RaiseEvent);
+        
+
         #endregion
 
 
-     
+
     }
 }

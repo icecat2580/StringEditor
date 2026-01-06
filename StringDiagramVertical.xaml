@@ -8,6 +8,7 @@
     x:Name="UC"
     Width="150"
     Height="Auto"
+    d:Background="Red"
     x:ClassModifier="internal"
     d:DesignHeight="450"
     d:DesignWidth="800"
@@ -20,7 +21,7 @@
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
-    <Grid Width="170">
+    <Grid x:Name="LayoutRoot" Width="170">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto">
             </ColumnDefinition>
@@ -39,13 +40,12 @@
             x:Name="Root"
             Grid.Column="0"
             Width="70"
-            Height="600"
             SnapsToDevicePixels="True" />
         <!--  标尺绘画区域  -->
         <Canvas
             x:Name="ruler"
             Grid.Column="1"
-            MinWidth="80">
+          >
         </Canvas>
 
     </Grid>

@@ -5,17 +5,11 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using Path = System.IO.Path;
 
 namespace StringDiagram
@@ -378,8 +372,32 @@ namespace StringDiagram
                 c.Width = (double)e.NewValue;
             }
         }
+
+
         #endregion
 
+
+        #region RulerMode
+        public static readonly DependencyProperty RulerModeProperty =
+            DependencyProperty.Register(
+            nameof(RulerMode),
+            typeof(RulerMode),
+            typeof(StringDiagramHorizontal),
+            new PropertyMetadata(RulerMode.PerCT, OnRulerModeChanged));
+
+        public RulerMode RulerMode
+        {
+            get => (RulerMode)GetValue(RulerModeProperty);
+            set => SetValue(RulerModeProperty, value);
+        }
+
+        private static void OnRulerModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var c = (StringDiagramHorizontal)d;
+            c?.RedrawSections();   // 模式切换时重画
+        }
+
+        #endregion
         #endregion
 
         #region Finish
@@ -585,8 +603,17 @@ namespace StringDiagram
             RedrawSections();
         }
 
+        #region 导出
+
+        /// <summary>
+        /// 图片导出使用 VisualBrush 
+        /// </summary>
+        /// <param name="width">目标图片宽度（像素）</param>
+        /// <param name="height">目标图片高度（像素）</param>
+        /// <param name="imagePath">完整文件路径，例如 D:\img1.png</param>
         public void ExportImage(double width, double height, string imagePath)
         {
+            //基本检查
             if (UC == null)
                 throw new InvalidOperationException("UC 控件未初始化。");
 
@@ -596,7 +623,7 @@ namespace StringDiagram
             if (string.IsNullOrWhiteSpace(imagePath))
                 throw new ArgumentException("imagePath 不能为空。", nameof(imagePath));
 
-            // 目录部分：D:\Study\StringEditor\bin\Debug
+            //路径、目录、扩展名处理
             string directory = Path.GetDirectoryName(imagePath);
             if (string.IsNullOrEmpty(directory))
                 throw new ArgumentException("imagePath 必须包含目录。", nameof(imagePath));
@@ -606,101 +633,88 @@ namespace StringDiagram
                 Directory.CreateDirectory(directory);
             }
 
-            // 扩展名部分：.png / .jpg / .bmp / .jpeg
-            string extension = Path.GetExtension(imagePath);
-            if (string.IsNullOrEmpty(extension))
+            string ext = Path.GetExtension(imagePath);
+            if (string.IsNullOrEmpty(ext))
                 throw new ArgumentException("imagePath 必须包含文件扩展名，例如 .png、.jpg、.bmp。", nameof(imagePath));
 
-            extension = extension.ToLowerInvariant();
+            ext = ext.ToLowerInvariant();
 
-            const double dpi = 96d;
+            const int dpi = 96;
 
-            // 先把控件渲染成一张内容图
-            UC.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            UC.Arrange(new Rect(0, 0, UC.DesiredSize.Width, UC.DesiredSize.Height));
-            UC.UpdateLayout();
+            // 选取要拍的元素，这里直接用整个 UserControl
+            UIElement element = UC;
 
-            int contentWidth = (int)Math.Ceiling(UC.ActualWidth > 0 ? UC.ActualWidth : UC.DesiredSize.Width);
-            int contentHeight = (int)Math.Ceiling(UC.ActualHeight > 0 ? UC.ActualHeight : UC.DesiredSize.Height);
+            // 确保布局完成，RenderSize 有值
+            element.UpdateLayout();
 
-            var contentRtb = new RenderTargetBitmap(
-                contentWidth,
-                contentHeight,
-                dpi,
-                dpi,
-                PixelFormats.Pbgra32);
+            int originalWidth = (int)Math.Round(element.RenderSize.Width);
+            int originalHeight = (int)Math.Round(element.RenderSize.Height);
 
-            contentRtb.Render(UC);
+            if (originalWidth <= 0 || originalHeight <= 0)
+                throw new InvalidOperationException("控件的 RenderSize 为 0，无法导出图片。请确保控件已经显示并完成布局。");
 
-            // 最终导出的底图
-            int pixelWidth = (int)Math.Ceiling(width);
-            int pixelHeight = (int)Math.Ceiling(height);
+            int targetWidth = (int)Math.Round(width);
+            int targetHeight = (int)Math.Round(height);
 
-            var finalRtb = new RenderTargetBitmap(
-                pixelWidth,
-                pixelHeight,
-                dpi,
-                dpi,
-                PixelFormats.Pbgra32);
+            // 创建目标位图
+            var rtb = new RenderTargetBitmap(targetWidth, targetHeight, dpi, dpi, PixelFormats.Pbgra32);
 
-            // 背景色 + 居中
+            // 计算等比缩放和居中偏移
+            double scaleX = (double)targetWidth / originalWidth;
+            double scaleY = (double)targetHeight / originalHeight;
+            double scale = Math.Min(scaleX, scaleY);
+
+            double offsetX = (targetWidth - originalWidth * scale) / 2.0;
+            double offsetY = (targetHeight - originalHeight * scale) / 2.0;
+
+            //用 VisualBrush“拍照”
             var dv = new DrawingVisual();
             using (var dc = dv.RenderOpen())
             {
-                // 所有格式统一白色背景
-                Brush backgroundBrush = Brushes.White;
+                // 白色背景
+                dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, targetWidth, targetHeight));
 
-                // 背景
-                dc.DrawRectangle(backgroundBrush, null, new Rect(0, 0, pixelWidth, pixelHeight));
+                // 先平移，再缩放（顺序和你引用的 SaveToImage 一致）
+                dc.PushTransform(new TranslateTransform(offsetX, offsetY));
+                dc.PushTransform(new ScaleTransform(scale, scale));
 
-                // 计算居中偏移量
-                double offsetX = (pixelWidth - contentRtb.PixelWidth) / 2.0;
-                double offsetY = (pixelHeight - contentRtb.PixelHeight) / 2.0;
+                // 把当前控件作为 VisualBrush 画到目标矩形上
+                dc.DrawRectangle(
+                    new VisualBrush(element),
+                    null,
+                    new Rect(0, 0, originalWidth, originalHeight));
 
-                // 把内容图画到中间
-                dc.DrawImage(
-                    contentRtb,
-                    new Rect(offsetX, offsetY, contentRtb.PixelWidth, contentRtb.PixelHeight));
+                // 还原变换
+                dc.Pop(); // Scale
+                dc.Pop(); // Translate
             }
 
-            finalRtb.Render(dv);
+            rtb.Render(dv);
 
-            // 根据扩展名选择编码器（C# 7.3 普通 switch 写法）
+            // 按扩展名选择编码器并保存
             BitmapEncoder encoder;
-            switch (extension)
+            switch (ext)
             {
-                case ".png":
-                    var pngEncoder = new PngBitmapEncoder();
-                    pngEncoder.Frames.Add(BitmapFrame.Create(finalRtb));
-                    encoder = pngEncoder;
-                    break;
-
                 case ".jpg":
                 case ".jpeg":
-                    var jpegEncoder = new JpegBitmapEncoder { QualityLevel = 90 };
-                    jpegEncoder.Frames.Add(BitmapFrame.Create(finalRtb));
-                    encoder = jpegEncoder;
+                    encoder = new JpegBitmapEncoder();
                     break;
-
                 case ".bmp":
-                    var bmpEncoder = new BmpBitmapEncoder();
-                    bmpEncoder.Frames.Add(BitmapFrame.Create(finalRtb));
-                    encoder = bmpEncoder;
+                    encoder = new BmpBitmapEncoder();
                     break;
-
+                case ".png":
                 default:
-                    throw new InvalidOperationException("不支持的图片扩展名: " + extension);
+                    encoder = new PngBitmapEncoder();
+                    break;
             }
 
-            // 直接用传进来的完整路径保存，例如 D:\...\StringDiagram.png
+            encoder.Frames.Add(BitmapFrame.Create(rtb));
+
             using (var fs = new FileStream(imagePath, FileMode.Create, FileAccess.Write))
             {
                 encoder.Save(fs);
             }
         }
-
-
-
 
         #endregion
 
@@ -746,6 +760,9 @@ namespace StringDiagram
 
         #endregion
 
+
+        #endregion
+
         #region 绘制（水平）
 
         private void RedrawSections()
@@ -759,13 +776,16 @@ namespace StringDiagram
             if (CTs.Count == 0)
                 return;
 
+            Root.Width = ConTainerWidth;
+            ruler.Width = ConTainerWidth;
+
             double rootWidth = ConTainerWidth;
             double rootHeight = Root.ActualHeight > 0 ? Root.ActualHeight : Root.Height;
             if (rootWidth <= 0 || rootHeight <= 0)
                 return;
 
             double marginLeft = 25;
-            double marginRight = 10;
+            double marginRight = 25;
             double marginY = 10;
 
             double usableWidth = rootWidth - marginLeft - marginRight;
@@ -1091,13 +1111,11 @@ namespace StringDiagram
 
 
 
-
-
+        #region 标尺绘制
         /// <summary>
-        /// 在上方 ruler 画水平标尺（左端 0m，右端总长）
-        /// 完全依赖 CTs 和 _sectionRegions：
-        ///   - X 坐标从 _sectionRegions.Bounds.Left/Right 取；
-        ///   - 数值用 CTs 的 Length 累加得到，从左端开始算。
+        /// 在上方 ruler 画水平标尺
+        /// RulerMode.Global : 所有 CT 共用一根标尺（总长）
+        /// RulerMode.PerCT  : 每根 CT 单独一根标尺（各自长度）
         /// </summary>
         private void DrawRulerHorizontal(double totalLength)
         {
@@ -1106,13 +1124,30 @@ namespace StringDiagram
 
             ruler.Children.Clear();
 
+            // 根据模式分发
+            if (RulerMode == RulerMode.Global)
+            {
+                DrawRulerHorizontal_Global(totalLength);
+            }
+            else // RulerMode.PerCT
+            {
+                DrawRulerHorizontal_PerCT();
+            }
+        }
+
+
+        /// <summary>
+        /// 全量模式：所有 CT 共用一根标尺，右端 0，左端 totalLength
+        /// </summary>
+        private void DrawRulerHorizontal_Global(double totalLength)
+        {
             double rulerWidth = Root.ActualWidth > 0 ? Root.ActualWidth : ConTainerWidth;
             double rulerHeight = ruler.ActualHeight > 0 ? ruler.ActualHeight : 30;
 
             ruler.Width = rulerWidth;
             ruler.Height = rulerHeight;
 
-            // 整个管柱绘制区域的最左/最右 X
+            // 整个管柱绘制区域的最左 / 最右 X
             double xLeft = _sectionRegions.Min(r => r.Bounds.Left);
             double xRight = _sectionRegions.Max(r => r.Bounds.Right);
 
@@ -1164,11 +1199,10 @@ namespace StringDiagram
                 ruler.Children.Add(tb);
             }
 
-            //右端 0m
+            // 右端 0
             DrawTick(xRight, 0.0);
 
-            //中间刻度：用分段右边界的 X，当作刻度位置，
-            //数值 = totalLength - accFromLeft（从右往左递增）
+            // 中间刻度：用分段右边界的 X 当作刻度位置
             double accFromLeft = 0.0;
             for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
             {
@@ -1193,17 +1227,136 @@ namespace StringDiagram
                 }
             }
 
-            // 左端 totalLength m
+            // 左端 totalLength
             DrawTick(xLeft, totalLength);
         }
 
+
+
+
+
+        /// <summary>
+        /// 分管模式：每根 CT 单独一根标尺，右端 0，左端为该 CT 自己的总长
+        /// </summary>
+        private void DrawRulerHorizontal_PerCT()
+        {
+            double rulerWidth = Root.ActualWidth > 0 ? Root.ActualWidth : ConTainerWidth;
+            double rulerHeight = ruler.ActualHeight > 0 ? ruler.ActualHeight : 30;
+
+            ruler.Width = rulerWidth;
+            ruler.Height = rulerHeight;
+
+            double lineY = rulerHeight;
+            double tickLength = 6;
+            double tickStartY = lineY;
+            double tickEndY = lineY - tickLength;
+            double textGap = 2;
+
+            // 画一条刻度 + 文本（valueFromRight：从右端起算）
+            void DrawTick(double x, double valueFromRight)
+            {
+                var tick = new System.Windows.Shapes.Line
+                {
+                    X1 = x,
+                    X2 = x,
+                    Y1 = tickStartY,
+                    Y2 = tickEndY,
+                    Stroke = LineBrush,
+                    StrokeThickness = 1
+                };
+                ruler.Children.Add(tick);
+
+                var tb = new TextBlock
+                {
+                    Text = valueFromRight.ToString("0.0") + DisplayUnit,
+                    Foreground = FontBrush,
+                    FontSize = fontSize
+                };
+
+                tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                double textWidth = tb.DesiredSize.Width;
+
+                Canvas.SetLeft(tb, x - textWidth / 2.0);
+                Canvas.SetTop(tb, tickEndY - tb.FontSize - textGap);
+
+                ruler.Children.Add(tb);
+            }
+
+            // 对每一根 CT 单独画一根标尺
+            for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
+            {
+                var ct = CTs[ctIndex];
+                if (ct == null || ct.Count == 0)
+                    continue;
+
+                // 该 CT 的所有分段区域
+                var regionsOfCt = _sectionRegions
+                    .Where(r => r.CTIndex == ctIndex)
+                    .ToList();
+
+                if (regionsOfCt.Count == 0)
+                    continue;
+
+                double xLeft = regionsOfCt.Min(r => r.Bounds.Left);
+                double xRight = regionsOfCt.Max(r => r.Bounds.Right);
+
+                // 该 CT 自己的总长度
+                double ctLength = 0.0;
+                foreach (var sec in ct)
+                    ctLength += sec.Length;
+
+                if (ctLength <= 0)
+                    continue;
+
+                // 该 CT 的主水平线
+                var mainLine = new System.Windows.Shapes.Line
+                {
+                    X1 = xLeft,
+                    X2 = xRight,
+                    Y1 = lineY,
+                    Y2 = lineY,
+                    Stroke = LineBrush,
+                    StrokeThickness = 1
+                };
+                ruler.Children.Add(mainLine);
+
+                // 右端 0
+                DrawTick(xRight, 0.0);
+
+                // 中间刻度：只累加当前 CT 的长度
+                double accFromLeft = 0.0;
+                for (int secIndex = 0; secIndex < ct.Count; secIndex++)
+                {
+                    var sec = ct[secIndex];
+                    accFromLeft += sec.Length;
+
+                    if (accFromLeft <= 0 || accFromLeft >= ctLength)
+                        continue;
+
+                    var region = regionsOfCt
+                        .Find(r => r.SectionIndex == secIndex);
+                    if (region == null)
+                        continue;
+
+                    double x = region.Bounds.Right;
+                    double valueFromRight = ctLength - accFromLeft;
+                        
+                    DrawTick(x, valueFromRight);
+                }
+
+                // 左端 = 该 CT 的总长度
+                DrawTick(xLeft, ctLength);
+            }
+        }
+
+        #endregion
 
 
         #endregion
 
         #region 选中逻辑 & 鼠标事件
 
-        private void SetSelectedSection(int ctIndex, int sectionIndex, bool raiseEvent)
+        public void SetSelectedSection(int ctIndex, int sectionIndex, bool raiseEvent)
         {
             if (_selectedCTIndex >= 0 && _selectedSectionIndex >= 0)
             {

@@ -35,14 +35,12 @@
             x:Name="ruler"
             Grid.Row="0"
             Height="30"
-            MinWidth="150"
-            Background="Transparent" />
+            />
 
         <!--  画图用的根容器（在下方）  -->
         <Canvas
             x:Name="Root"
             Grid.Row="1"
-            Width="600"
             Height="70"
             SnapsToDevicePixels="True" />
     </Grid>
