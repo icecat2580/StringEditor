@@ -634,6 +634,9 @@ namespace StringDiagram
 
         public void SetLeftMargin(double LeftWidth) 
             =>_Horizontal.SetLeftMargin(LeftWidth);
+
+        public void SetDisplayUnit(string unit)
+         => _current.SetDisplayUnit(unit);
         #endregion
 
 

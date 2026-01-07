@@ -379,7 +379,13 @@ namespace StringDiagram
                 typeof(string),
                 typeof(StringDiagramVertical),
                 new PropertyMetadata("m"));
-
+        //private static void OnDisPlayUnitChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        //{
+        //    if (d is StringDiagramVertical uc)
+        //    {
+        //        uc.RedrawSections();
+        //    }
+        //}
 
         #endregion
 
@@ -695,7 +701,15 @@ namespace StringDiagram
 
 
 
-      
+        /// <summary>
+        /// 设置显示单位
+        /// </summary>
+        /// <param name="unit"></param>
+        public void SetDisplayUnit(string unit)
+        {
+            DisplayUnit = unit;
+            RedrawSections();
+        }
 
 
 

@@ -76,6 +76,8 @@ namespace StringDiagram.Interfaces
         void   GetDrawIngRegion(out Point LeftBottomPoint,out Point RightBottomPoint);
         //设置左侧边距
         void SetLeftMargin(double LeftWidth);
+        //设置显示单位
+        void SetDisplayUnit(string unit);
 
     }
 }

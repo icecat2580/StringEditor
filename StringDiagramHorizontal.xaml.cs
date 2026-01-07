@@ -135,8 +135,9 @@ namespace StringDiagram
                 nameof(ReelBrush),
                 typeof(Brush),
                 typeof(StringDiagramHorizontal),
-                new PropertyMetadata(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E0F0E3")), OnReelBrushChanged));
+                new PropertyMetadata(Brushes.Green, OnReelBrushChanged));
 
+            //new SolidColorBrush((Color) ColorConverter.ConvertFromString("#E0F0E3"))
         private static void OnReelBrushChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var c = (StringDiagramHorizontal)d;
@@ -318,6 +319,14 @@ namespace StringDiagram
                 typeof(string), 
                 typeof(StringDiagramHorizontal),
                 new PropertyMetadata("m"));
+
+        //private static void OnDisPlayUnitChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        //{
+        //    if (d is StringDiagramHorizontal uc) 
+        //    {
+        //        uc.RedrawSections();
+        //    }
+        //}
 
 
         #endregion
@@ -667,6 +676,17 @@ namespace StringDiagram
             RedrawSections();
         }
 
+
+        /// <summary>
+        /// 设置显示单位
+        /// </summary>
+        /// <param name="unit"></param>
+        public void SetDisplayUnit(string unit)
+        {
+            DisplayUnit = unit;
+            RedrawSections();
+        }
+
         #region 导出
 
         /// <summary>
@@ -830,6 +850,7 @@ namespace StringDiagram
         }
 
         #endregion
+
 
 
         #endregion
@@ -1559,6 +1580,8 @@ namespace StringDiagram
                 }
             }
         }
+
+
 
 
 
