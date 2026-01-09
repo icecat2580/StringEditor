@@ -449,7 +449,6 @@ namespace StringDiagram
 
         #endregion
 
-
         #region RulerMode
         public static readonly DependencyProperty RulerModeProperty =
             DependencyProperty.Register(
@@ -1041,8 +1040,8 @@ namespace StringDiagram
                     double leftM = globalMeter;
                     double rightM = globalMeter + s.Length;
 
-                    double leftX = marginLeft + ctOffsetPixel + leftM * meterToPixel;
-                    double rightX = marginLeft + ctOffsetPixel + rightM * meterToPixel;
+                    double leftX = SnapY( marginLeft + ctOffsetPixel + leftM * meterToPixel);
+                    double rightX = SnapY( marginLeft + ctOffsetPixel + rightM * meterToPixel);
 
                     // 外半径（像素）
                     double outerLeftR = s.OuterDiameterOfReelEnd * diameterToPixel;
@@ -1509,6 +1508,14 @@ namespace StringDiagram
         #endregion
 
         #region 工具：更新图标颜色
+        private double SnapY(double yDip)
+        {
+            var dpi = VisualTreeHelper.GetDpi(this);
+            double scaleY = dpi.DpiScaleY;
+            double yPx = yDip * scaleY;
+            double snappedPx = Math.Round(yPx);
+            return snappedPx / scaleY;
+        }
 
         private void UpdateReelIcon(Brush brush)
         {

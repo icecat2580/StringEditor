@@ -43,6 +43,7 @@ namespace StringDiagram.Interfaces
         double MinWallFracTotal { get; set; }
         //最大壁厚系数
         double MaxWallFracTotal { get; set; }
+
         //选中分段时触发委托
         event Action<int, int> OnSelectedSectionhandler;
 

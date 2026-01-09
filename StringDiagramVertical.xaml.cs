@@ -1076,8 +1076,8 @@ namespace StringDiagram
                     double topM = globalMeter;
                     double bottomM = globalMeter + s.Length;
 
-                    double topY = marginTop + topM * meterToPixel + ctOffsetPixel;
-                    double bottomY = marginTop + bottomM * meterToPixel + ctOffsetPixel;
+                    double topY =SnapY( marginTop + topM * meterToPixel + ctOffsetPixel);
+                    double bottomY =SnapY(  marginTop + bottomM * meterToPixel + ctOffsetPixel);
 
                     // 外半径（像素）
                     double outerTopR = s.OuterDiameterOfReelEnd * diameterToPixel;
@@ -1568,6 +1568,18 @@ namespace StringDiagram
         #endregion
 
         #region 工具
+
+        private double SnapY(double yDip)
+        {
+            var dpi = VisualTreeHelper.GetDpi(this);
+            double scaleY = dpi.DpiScaleY;
+            double yPx = yDip * scaleY;
+            double snappedPx = Math.Round(yPx); 
+            return snappedPx / scaleY;
+        }
+
+
+
         private void UpdateReelIcon(Brush brush)
         {
             // 每次从模板重新克隆一份
@@ -1642,8 +1654,6 @@ namespace StringDiagram
                 }
             }
         }
-
-
 
 
 
