@@ -26,7 +26,7 @@ namespace StringDiagram
         public event Action<int, int> OnSelectedSectionhandler;
 
         // 长度方向缩放（X 轴）
-        public double MeterToPixel { get; set; } = 1 * 10;
+        public double MeterToPixel { get; set; } = 1 * 10000;
 
 
         private int _selectedCTIndex = -1;

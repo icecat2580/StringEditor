@@ -34,7 +34,7 @@ namespace StringDiagram
         private readonly List<CtTopImageInfo> _ctTopImages = new List<CtTopImageInfo>();
         public event Action<int, int> OnSelectedSectionhandler;
         // 纵向缩放
-        public double MeterToPixel { get; set; } = 0.5 * 10;
+        public double MeterToPixel { get; set; } = 0.5 * 10000;
 
         //当前选中的CT索引
         private int _selectedCTIndex = -1;
