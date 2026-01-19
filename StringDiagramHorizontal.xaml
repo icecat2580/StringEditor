@@ -38,6 +38,7 @@
             Grid.Row="0"
             Width="{Binding ElementName=UC, Path=Width}"
             Height="30"
+            SnapsToDevicePixels="True"
             Background="Transparent" />
 
         <!--  画图用的根容器（在下方）  -->

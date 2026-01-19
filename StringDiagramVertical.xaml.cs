@@ -341,6 +341,9 @@ namespace StringDiagram
             if (c != null)
             {
                 c.Height = (double)e.NewValue;
+                c.Root.Height = (double)e.NewValue;
+                c.ruler.Height = (double)e.NewValue;
+                c.RedrawSections();
             }
         }
         #endregion
@@ -900,13 +903,18 @@ namespace StringDiagram
             ruler.Height = ConTainerHeight;
 
             // 根容器尺寸
-            double rootWidth = Root.ActualWidth;
-            if (rootWidth <= 0)
-                rootWidth = Root.Width;
+            //double rootWidth = Root.ActualWidth;
+            //if (rootWidth <= 0)
+            //    rootWidth = Root.Width;
 
+            //double rootHeight = ConTainerHeight;
+            //if (rootWidth <= 0 || rootHeight <= 0)
+            //    return;
             double rootHeight = ConTainerHeight;
+            double rootWidth = Root.ActualWidth > 0 ? Root.ActualWidth : Root.Width;
             if (rootWidth <= 0 || rootHeight <= 0)
                 return;
+
 
             double marginX = 0;
             double marginTop = 25;   // 顶部留给图标
@@ -1278,11 +1286,15 @@ namespace StringDiagram
         /// </summary>
         private void DrawRuler_Global(double totalLength)
         {
-            double rulerWidth = ruler.ActualWidth;
-            double rulerHeight = Root.ActualHeight;
+            //double rulerWidth = ruler.ActualWidth;
+            //double rulerHeight = Root.ActualHeight;
 
-            if (rulerWidth <= 0) rulerWidth = 50;
-            if (rulerHeight <= 0) rulerHeight = Root.Height > 0 ? Root.Height : ConTainerHeight;
+            //if (rulerWidth <= 0) rulerWidth = 50;
+            //if (rulerHeight <= 0) rulerHeight = Root.Height > 0 ? Root.Height : ConTainerHeight;
+
+
+            double rulerHeight = Root.ActualWidth > 0 ? Root.ActualWidth : ConTainerHeight;
+            double rulerWidth = ruler.ActualWidth > 0 ? ruler.ActualWidth : 50;
 
             ruler.Width = rulerWidth;
             ruler.Height = rulerHeight;
@@ -1381,11 +1393,15 @@ namespace StringDiagram
         /// </summary>
         private void DrawRuler_PerCT()
         {
-            double rulerWidth = ruler.ActualWidth;
-            double rulerHeight = Root.ActualHeight;
+            //double rulerWidth = ruler.ActualWidth;
+            //double rulerHeight = Root.ActualHeight;
 
-            if (rulerWidth <= 0) rulerWidth = 50;
-            if (rulerHeight <= 0) rulerHeight = Root.Height > 0 ? Root.Height : ConTainerHeight;
+            //if (rulerWidth <= 0) rulerWidth = 50;
+            //if (rulerHeight <= 0) rulerHeight = Root.Height > 0 ? Root.Height : ConTainerHeight;
+
+
+            double rulerHeight = Root.Height > 0 ? Root.Height : ConTainerHeight;
+            double rulerWidth = ruler.ActualWidth > 0 ? ruler.ActualWidth : 50;
 
             ruler.Width = rulerWidth;
             ruler.Height = rulerHeight;

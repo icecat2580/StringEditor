@@ -34,11 +34,11 @@ namespace StringDiagram
             this.SizeChanged += StringDiagramUC_SizeChanged;
         }
 
-        private void StringDiagramUC_SizeChanged(object sender, SizeChangedEventArgs e)
+        private  void StringDiagramUC_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             if (Orientation == Orientation.Vertical && _Vertical != null)
             {
-                _Vertical.ConTainerHeight = ConTainerHeight;
+                _Vertical.ConTainerHeight =this.ActualHeight;
             }
             else if (Orientation == Orientation.Horizontal && _Horizontal != null)
             {

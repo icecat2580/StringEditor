@@ -388,67 +388,6 @@ namespace StringDiagram
 
         #endregion
 
-        #region ContainerWidthPX (px -> WPF DIP)
-
-        public double ContainerWidthPX
-        {
-            get => (double)GetValue(ContainerWidthPXProperty);
-            set => SetValue(ContainerWidthPXProperty, value);
-        }
-
-        public static readonly DependencyProperty ContainerWidthPXProperty =
-            DependencyProperty.Register(
-                nameof(ContainerWidthPX),
-                typeof(double),
-                typeof(StringDiagramHorizontal),
-                new PropertyMetadata(600d, OnContainerWidthPXChanged));
-
-        private static void OnContainerWidthPXChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            var c = (StringDiagramHorizontal)d;
-            if (c == null) return;
-
-            c.ApplyContainerWidthFromPx();
-        }
-
-        private bool _isLoaded;
-
-        private void ApplyContainerWidthFromPx()
-        {
-            if (!_isLoaded)
-            {
-                SetWidthDipFromPx();
-                return;
-            }
-            SetWidthDipFromPx();
-            RedrawSections();
-        }
-
-        private void SetWidthDipFromPx()
-        {
-            var dip = PxToDip(ContainerWidthPX);
-            if (dip <= 0) return;
-
-            Width = dip;
-
-            if (Root != null) Root.Width = dip;
-            if (ruler != null) ruler.Width = dip;
-        }
-
-        private double PxToDip(double px)
-        {
-            if (px <= 0) return 0;
-
-            // WPF：1 DIP = 1/96 inch；px 与 DIP 的比例取决于当前 dpi
-            var dpi = VisualTreeHelper.GetDpi(this);
-            var dpiX = dpi.PixelsPerInchX;
-            if (dpiX <= 0) dpiX = 96.0;
-
-            return px * 96.0 / dpiX;
-        }
-
-        #endregion
-
         #region RulerMode
         public static readonly DependencyProperty RulerModeProperty =
             DependencyProperty.Register(
