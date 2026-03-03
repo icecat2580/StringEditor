@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace StringDiagram.Models
 {
@@ -12,6 +13,7 @@ namespace StringDiagram.Models
     {
         public int CTIndex { get; set; }
         public Image Image { get; set; }
+        public ImageSource   ImageSource { get; set; }
         public TopIconKind TopIconKind { get; set; }=TopIconKind.Default;
     }
 }

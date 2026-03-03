@@ -79,6 +79,10 @@ namespace StringDiagram.Interfaces
         void SetLeftMargin(double LeftWidth);
         //设置显示单位
         void SetDisplayUnit(string unit);
+        //根据文件路径设置当前连接器样式
+        void SetConnnectorByFilePath(int CTIndex, string FilePath);
+        //根据字节数组设置连接器样式
+        void SetConnectorByByteArry(int CTIndex,byte[] ByteArry);
 
     }
 }

@@ -637,6 +637,17 @@ namespace StringDiagram
 
         public void SetDisplayUnit(string unit)
          => _current.SetDisplayUnit(unit);
+
+        public void SetConnnectorByFilePath(int CTIndex, string FilePath)
+        {
+            _current.SetConnnectorByFilePath(CTIndex, FilePath);
+        }
+
+
+        public void SetConnectorByByteArry(int CTIndex, byte[] ByteArry)
+        {
+            _current.SetConnectorByByteArry(CTIndex, ByteArry);
+        }
         #endregion
 
 

@@ -52,6 +52,7 @@
     <Compile Include="Enums\Orientation.cs" />
     <Compile Include="Enums\RulerModel.cs" />
     <Compile Include="Enums\TopIconKind.cs" />
+    <Compile Include="Extensions\ByteArrayExtensions.cs" />
     <Compile Include="Interfaces\IStringEditor.cs" />
     <Compile Include="Models\CtTopImageInfo.cs" />
     <Compile Include="Models\FreeWeldInfo.cs" />

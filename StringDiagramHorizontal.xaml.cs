@@ -1,4 +1,5 @@
 ﻿using StringDiagram.Enums;
+using StringDiagram.Extensions;
 using StringDiagram.Models;
 using System;
 using System.Collections.Generic;
@@ -940,7 +941,16 @@ namespace StringDiagram
                         if (kind == TopIconKind.Reel)
                             img.Source = _reelIconSource;
                         else if (kind == TopIconKind.Connector)
-                            img.Source = _connectorIconSource;
+                            {
+                            if (info.ImageSource == null)
+                            {
+                                img.Source = _connectorIconSource;
+                            }
+                            else 
+                            {
+                                img.Source=info.ImageSource;
+                            }
+                        }
 
                         double iconX;
                         double iconCenterY = centerY;
@@ -1525,6 +1535,30 @@ namespace StringDiagram
                     }
                 }
             }
+        }
+
+
+        public static byte[] ReadPngToBytes(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("文件路径不能为空");
+
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException("文件不存在", filePath);
+
+            return File.ReadAllBytes(filePath);
+        }
+
+        public void SetConnnectorByFilePath(int CTIndex, string FilePath)
+        {
+            SetConnectorByByteArry(CTIndex, ReadPngToBytes(FilePath));
+        }
+
+        public void SetConnectorByByteArry(int CTIndex, byte[] ByteArry)
+        {
+            _ctTopImages[CTIndex+1].ImageSource=ByteArry.ToImageSource();
+            RedrawSections();
+            
         }
 
 
