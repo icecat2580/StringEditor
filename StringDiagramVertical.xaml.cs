@@ -1,4 +1,4 @@
-﻿using StringDiagram.Enums;
+using StringDiagram.Enums;
 using StringDiagram.Extensions;
 using StringDiagram.Interfaces;
 using StringDiagram.Models;
@@ -890,374 +890,381 @@ namespace StringDiagram
         #region 绘制
         private void RedrawSections()
         {
-            if (Root == null)
-                return;
-
-            Root.Children.Clear();
-            if (ruler != null)
-                ruler.Children.Clear();
-
-            if (CTs.Count == 0)
-                return;
-
-            Root.Height = ConTainerHeight;
-            ruler.Height = ConTainerHeight;
-
-            // 根容器尺寸
-            //double rootWidth = Root.ActualWidth;
-            //if (rootWidth <= 0)
-            //    rootWidth = Root.Width;
-
-            //double rootHeight = ConTainerHeight;
-            //if (rootWidth <= 0 || rootHeight <= 0)
-            //    return;
-            double rootHeight = ConTainerHeight;
-            double rootWidth = Root.ActualWidth > 0 ? Root.ActualWidth : Root.Width;
-            if (rootWidth <= 0 || rootHeight <= 0)
-                return;
-
-
-            double marginX = 0;
-            double marginTop = 25;   // 顶部留给图标
-            double marginBottom =25; // 底部不要留空
-            double usableWidth = rootWidth - 2 * marginX;
-            double usableHeight = rootHeight - marginBottom - marginTop;
-            if (usableWidth <= 0 || usableHeight <= 0)
-                return;
-
-            _sectionRegions.Clear();
-
-            //统计总长、最大外径、最大/最小壁厚
-
-            double totalLength = 0;
-            double maxOuterDiameter = 0;
-
-            // 壁厚（按半径算）：outerRadius - innerRadius
-            double minWall = double.MaxValue;
-            double maxWall = double.MinValue;
-
-            foreach (var ct in CTs)
+            try
             {
-                foreach (var s in ct)
+                if (Root == null)
+                    return;
+
+                Root.Children.Clear();
+                if (ruler != null)
+                    ruler.Children.Clear();
+
+                if (CTs.Count == 0)
+                    return;
+
+                Root.Height = ConTainerHeight;
+                ruler.Height = ConTainerHeight;
+
+                // 根容器尺寸
+                //double rootWidth = Root.ActualWidth;
+                //if (rootWidth <= 0)
+                //    rootWidth = Root.Width;
+
+                //double rootHeight = ConTainerHeight;
+                //if (rootWidth <= 0 || rootHeight <= 0)
+                //    return;
+                double rootHeight = ConTainerHeight;
+                double rootWidth = Root.ActualWidth > 0 ? Root.ActualWidth : Root.Width;
+                if (rootWidth <= 0 || rootHeight <= 0)
+                    return;
+
+
+                double marginX = 0;
+                double marginTop = 25;   // 顶部留给图标
+                double marginBottom = 25; // 底部不要留空
+                double usableWidth = rootWidth - 2 * marginX;
+                double usableHeight = rootHeight - marginBottom - marginTop;
+                if (usableWidth <= 0 || usableHeight <= 0)
+                    return;
+
+                _sectionRegions.Clear();
+
+                //统计总长、最大外径、最大/最小壁厚
+
+                double totalLength = 0;
+                double maxOuterDiameter = 0;
+
+                // 壁厚（按半径算）：outerRadius - innerRadius
+                double minWall = double.MaxValue;
+                double maxWall = double.MinValue;
+
+                foreach (var ct in CTs)
                 {
-                    totalLength += s.Length;
-
-                    maxOuterDiameter = Math.Max(
-                        maxOuterDiameter,
-                        Math.Max(s.OuterDiameterOfReelEnd, s.OuterDiameterOfFreeEnd));
-
-                    // 上端壁厚
-                    double wallTop = s.OuterDiameterOfReelEnd - s.InnerDiameterOfReelEnd;
-                    if (wallTop > 0)
+                    foreach (var s in ct)
                     {
-                        minWall = Math.Min(minWall, wallTop);
-                        maxWall = Math.Max(maxWall, wallTop);
-                    }
+                        totalLength += s.Length;
 
-                    // 下端壁厚
-                    double wallBot = s.OuterDiameterOfFreeEnd - s.InnerDiameterOfFreeEnd;
-                    if (wallBot > 0)
-                    {
-                        minWall = Math.Min(minWall, wallBot);
-                        maxWall = Math.Max(maxWall, wallBot);
-                    }
-                }
-            }
+                        maxOuterDiameter = Math.Max(
+                            maxOuterDiameter,
+                            Math.Max(s.OuterDiameterOfReelEnd, s.OuterDiameterOfFreeEnd));
 
-            if (totalLength <= 0 || maxOuterDiameter <= 0)
-                return;
-
-            // 如果所有壁厚都一样/或都是 0 就给一个默认值，避免除 0
-            if (minWall == double.MaxValue)
-            {
-                minWall = 1;
-                maxWall = 1;
-            }
-
-            // 纵向缩放
-
-            double connectorGapPixel = TopIconHeight; // 管子之间的间隔（像素）
-            double totalGapPixel = connectorGapPixel * Math.Max(CTs.Count - 1, 0);
-
-            double meterToPixel = MeterToPixel;
-            double maxPhysicalHeight = usableHeight - totalGapPixel;
-            if (maxPhysicalHeight <= 0)
-                return;
-
-            if (meterToPixel * totalLength > maxPhysicalHeight)
-            {
-                meterToPixel = maxPhysicalHeight / totalLength;
-            }
-
-            //横向缩放（最大外径占可用宽度的固定比例）
-            double pipeCoverage =0.8;//绘图区域占比
-            double halfWidthMax = usableWidth * pipeCoverage / 2.0;
-
-            double diameterToPixel = maxOuterDiameter > 0
-                ? halfWidthMax / maxOuterDiameter
-                : 0;
-
-            double centerX = rootWidth / 2.0;
-
-            // 准备焊缝刻度数据
-            var structuralWeldFromTop = new List<double>();
-            double globalMeter = 0.0; // 从总顶端累计的长度
-
-            const double eps = 1e-6;
-
-            for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
-            {
-                var ct = CTs[ctIndex];
-
-                double ctOffsetPixel = connectorGapPixel * ctIndex;
-
-                // 确保 _ctTopImages 至少有 ctIndex+1 项
-                if (ctIndex >= _ctTopImages.Count)
-                {
-                    _ctTopImages.Add(new CtTopImageInfo
-                    {
-                        CTIndex = ctIndex,
-                        TopIconKind = TopIconKind.Default
-                    });
-                }
-                var info = _ctTopImages[ctIndex];
-                info.CTIndex = ctIndex;
-
-                //顶部图标
-                {
-                    TopIconKind kind = info.TopIconKind;
-                    if (kind == TopIconKind.Default)
-                    {
-                        kind = (ctIndex == 0) ? TopIconKind.Reel : TopIconKind.Connector;
-                    }
-
-                    if (kind == TopIconKind.None)
-                    {
-                        info.Image = null;
-                    }
-                    else
-                    {
-                        var img = new Image
+                        // 上端壁厚
+                        double wallTop = s.OuterDiameterOfReelEnd - s.InnerDiameterOfReelEnd;
+                        if (wallTop > 0)
                         {
-                            Width = TopIconWidth,
-                            Height = TopIconHeight,
-                            Stretch = Stretch.Uniform
-                        };
-
-                        if (kind == TopIconKind.Reel)
-                            img.Source = _reelIconSource;
-                        else if (kind == TopIconKind.Connector)
-                        {
-                            if (info.ImageSource == null)
-                            {
-                                img.Source = _connectorIconSource;
-                            }
-                            else
-                            {
-                                img.Source = info.ImageSource;
-                            }
+                            minWall = Math.Min(minWall, wallTop);
+                            maxWall = Math.Max(maxWall, wallTop);
                         }
 
-                        double iconCenterX = centerX;
-                        double iconX = iconCenterX - TopIconWidth / 2.0;
-                        double iconY;
-
-                        if (ctIndex == 0)
+                        // 下端壁厚
+                        double wallBot = s.OuterDiameterOfFreeEnd - s.InnerDiameterOfFreeEnd;
+                        if (wallBot > 0)
                         {
-                            double ctTopM = globalMeter;
-                            double ctTopY = marginTop + ctOffsetPixel + ctTopM * meterToPixel;
-                            iconY = ctTopY - TopIconHeight;
+                            minWall = Math.Min(minWall, wallBot);
+                            maxWall = Math.Max(maxWall, wallBot);
+                        }
+                    }
+                }
+
+                if (totalLength <= 0 || maxOuterDiameter <= 0)
+                    return;
+
+                // 如果所有壁厚都一样/或都是 0 就给一个默认值，避免除 0
+                if (minWall == double.MaxValue)
+                {
+                    minWall = 1;
+                    maxWall = 1;
+                }
+
+                // 纵向缩放
+
+                double connectorGapPixel = TopIconHeight; // 管子之间的间隔（像素）
+                double totalGapPixel = connectorGapPixel * Math.Max(CTs.Count - 1, 0);
+
+                double meterToPixel = MeterToPixel;
+                double maxPhysicalHeight = usableHeight - totalGapPixel;
+                if (maxPhysicalHeight <= 0)
+                    return;
+
+                if (meterToPixel * totalLength > maxPhysicalHeight)
+                {
+                    meterToPixel = maxPhysicalHeight / totalLength;
+                }
+
+                //横向缩放（最大外径占可用宽度的固定比例）
+                double pipeCoverage = 0.8;//绘图区域占比
+                double halfWidthMax = usableWidth * pipeCoverage / 2.0;
+
+                double diameterToPixel = maxOuterDiameter > 0
+                    ? halfWidthMax / maxOuterDiameter
+                    : 0;
+
+                double centerX = rootWidth / 2.0;
+
+                // 准备焊缝刻度数据
+                var structuralWeldFromTop = new List<double>();
+                double globalMeter = 0.0; // 从总顶端累计的长度
+
+                const double eps = 1e-6;
+
+                for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
+                {
+                    var ct = CTs[ctIndex];
+
+                    double ctOffsetPixel = connectorGapPixel * ctIndex;
+
+                    // 确保 _ctTopImages 至少有 ctIndex+1 项
+                    if (ctIndex >= _ctTopImages.Count)
+                    {
+                        _ctTopImages.Add(new CtTopImageInfo
+                        {
+                            CTIndex = ctIndex,
+                            TopIconKind = TopIconKind.Default
+                        });
+                    }
+                    var info = _ctTopImages[ctIndex];
+                    info.CTIndex = ctIndex;
+
+                    //顶部图标
+                    {
+                        TopIconKind kind = info.TopIconKind;
+                        if (kind == TopIconKind.Default)
+                        {
+                            kind = (ctIndex == 0) ? TopIconKind.Reel : TopIconKind.Connector;
+                        }
+
+                        if (kind == TopIconKind.None)
+                        {
+                            info.Image = null;
                         }
                         else
                         {
-                            double prevBottomY = marginTop + (connectorGapPixel * (ctIndex - 1))
+                            var img = new Image
+                            {
+                                Width = TopIconWidth,
+                                Height = TopIconHeight,
+                                Stretch = Stretch.Uniform
+                            };
+
+                            if (kind == TopIconKind.Reel)
+                                img.Source = _reelIconSource;
+                            else if (kind == TopIconKind.Connector)
+                            {
+                                if (info.ImageSource == null)
+                                {
+                                    img.Source = _connectorIconSource;
+                                }
+                                else
+                                {
+                                    img.Source = info.ImageSource;
+                                }
+                            }
+
+                            double iconCenterX = centerX;
+                            double iconX = iconCenterX - TopIconWidth / 2.0;
+                            double iconY;
+
+                            if (ctIndex == 0)
+                            {
+                                double ctTopM = globalMeter;
+                                double ctTopY = marginTop + ctOffsetPixel + ctTopM * meterToPixel;
+                                iconY = ctTopY - TopIconHeight;
+                            }
+                            else
+                            {
+                                double prevBottomY = marginTop + (connectorGapPixel * (ctIndex - 1))
+                                                      + globalMeter * meterToPixel;
+                                double currTopY = marginTop + ctOffsetPixel
                                                   + globalMeter * meterToPixel;
-                            double currTopY = marginTop + ctOffsetPixel
-                                              + globalMeter * meterToPixel;
-                            double iconCenterY = (prevBottomY + currTopY) / 2.0;
-                            iconY = iconCenterY - TopIconHeight / 2.0;
+                                double iconCenterY = (prevBottomY + currTopY) / 2.0;
+                                iconY = iconCenterY - TopIconHeight / 2.0;
+                            }
+
+                            Canvas.SetLeft(img, iconX);
+                            Canvas.SetTop(img, iconY);
+
+                            Root.Children.Add(img);
+                            info.Image = img;
+                        }
+                    }
+
+
+                    for (int secIndex = 0; secIndex < ct.Count; secIndex++)
+                    {
+                        var s = ct[secIndex];
+
+                        double topM = globalMeter;
+                        double bottomM = globalMeter + s.Length;
+
+                        double topY = SnapY(marginTop + topM * meterToPixel + ctOffsetPixel);
+                        double bottomY = SnapY(marginTop + bottomM * meterToPixel + ctOffsetPixel);
+
+                        // 外半径（像素）
+                        double outerTopR = s.OuterDiameterOfReelEnd * diameterToPixel;
+                        double outerBotR = s.OuterDiameterOfFreeEnd * diameterToPixel;
+
+                        // 物理壁厚（按半径）
+                        double wallTopPhys = s.OuterDiameterOfReelEnd - s.InnerDiameterOfReelEnd;
+                        double wallBotPhys = s.OuterDiameterOfFreeEnd - s.InnerDiameterOfFreeEnd;
+
+                        // 把物理壁厚 [minWall, maxWall] 映射到总壁厚比例 [0.4, 0.6]
+                        double tTop = 0.5;
+                        double tBot = 0.5;
+                        if (maxWall - minWall > eps)
+                        {
+                            tTop = (wallTopPhys - minWall) / (maxWall - minWall);
+                            tBot = (wallBotPhys - minWall) / (maxWall - minWall);
+                            tTop = Math.Max(0.0, Math.Min(1.0, tTop));
+                            tBot = Math.Max(0.0, Math.Min(1.0, tBot));
                         }
 
-                        Canvas.SetLeft(img, iconX);
-                        Canvas.SetTop(img, iconY);
+                        // 总壁厚占直径的比例
+                        double wallFracTopTotal = MinWallFracTotal +
+                                                  (MaxWallFracTotal - MinWallFracTotal) * tTop;
+                        double wallFracBotTotal = MinWallFracTotal +
+                                                  (MaxWallFracTotal - MinWallFracTotal) * tBot;
 
-                        Root.Children.Add(img);
-                        info.Image = img;
-                    }
-                }
+                        // 内半径：R_inner = (1 - 壁厚总比例) * R_outer
+                        // 说明：壁厚总比例 = 总壁厚 / 直径 = 单侧壁厚 / 外半径
+                        //       单侧壁厚 = wallFracTotal * R_outer
+                        //       R_inner = R_outer - 单侧壁厚
+                        double innerTopR = outerTopR * (1 - wallFracTopTotal);
+                        double innerBotR = outerBotR * (1 - wallFracBotTotal);
 
-               
-                for (int secIndex = 0; secIndex < ct.Count; secIndex++)
-                {
-                    var s = ct[secIndex];
-
-                    double topM = globalMeter;
-                    double bottomM = globalMeter + s.Length;
-
-                    double topY =SnapY( marginTop + topM * meterToPixel + ctOffsetPixel);
-                    double bottomY =SnapY(  marginTop + bottomM * meterToPixel + ctOffsetPixel);
-
-                    // 外半径（像素）
-                    double outerTopR = s.OuterDiameterOfReelEnd * diameterToPixel;
-                    double outerBotR = s.OuterDiameterOfFreeEnd * diameterToPixel;
-
-                    // 物理壁厚（按半径）
-                    double wallTopPhys = s.OuterDiameterOfReelEnd - s.InnerDiameterOfReelEnd;
-                    double wallBotPhys = s.OuterDiameterOfFreeEnd - s.InnerDiameterOfFreeEnd;
-
-                    // 把物理壁厚 [minWall, maxWall] 映射到总壁厚比例 [0.4, 0.6]
-                    double tTop = 0.5;
-                    double tBot = 0.5;
-                    if (maxWall - minWall > eps)
-                    {
-                        tTop = (wallTopPhys - minWall) / (maxWall - minWall);
-                        tBot = (wallBotPhys - minWall) / (maxWall - minWall);
-                        tTop = Math.Max(0.0, Math.Min(1.0, tTop));
-                        tBot = Math.Max(0.0, Math.Min(1.0, tBot));
-                    }
-
-                    // 总壁厚占直径的比例
-                    double wallFracTopTotal = MinWallFracTotal +
-                                              (MaxWallFracTotal - MinWallFracTotal) * tTop;
-                    double wallFracBotTotal = MinWallFracTotal +
-                                              (MaxWallFracTotal - MinWallFracTotal) * tBot;
-
-                    // 内半径：R_inner = (1 - 壁厚总比例) * R_outer
-                    // 说明：壁厚总比例 = 总壁厚 / 直径 = 单侧壁厚 / 外半径
-                    //       单侧壁厚 = wallFracTotal * R_outer
-                    //       R_inner = R_outer - 单侧壁厚
-                    double innerTopR = outerTopR * (1 - wallFracTopTotal);
-                    double innerBotR = outerBotR * (1 - wallFracBotTotal);
-
-                    //两侧管壁
-                    var leftPoly = new System.Windows.Shapes.Polygon
-                    {
-                        Tag = "left",
-                        Fill = SectionBrush,
-                        Stroke = LineBrush,
-                        StrokeThickness = LineWeight,
-                        Points = new PointCollection
+                        //两侧管壁
+                        var leftPoly = new System.Windows.Shapes.Polygon
+                        {
+                            Tag = "left",
+                            Fill = SectionBrush,
+                            Stroke = LineBrush,
+                            StrokeThickness = LineWeight,
+                            Points = new PointCollection
                 {
                     new Point(centerX - outerTopR, topY),
                     new Point(centerX - outerBotR, bottomY),
                     new Point(centerX - innerBotR, bottomY),
                     new Point(centerX - innerTopR, topY)
                 }
-                    };
-                    Root.Children.Add(leftPoly);
+                        };
+                        Root.Children.Add(leftPoly);
 
-                    var rightPoly = new System.Windows.Shapes.Polygon
-                    {
-                        Tag = "right",
-                        Fill = SectionBrush,
-                        Stroke = LineBrush,
-                        StrokeThickness = LineWeight,
-                        Points = new PointCollection
+                        var rightPoly = new System.Windows.Shapes.Polygon
+                        {
+                            Tag = "right",
+                            Fill = SectionBrush,
+                            Stroke = LineBrush,
+                            StrokeThickness = LineWeight,
+                            Points = new PointCollection
                 {
                     new Point(centerX + outerTopR, topY),
                     new Point(centerX + outerBotR, bottomY),
                     new Point(centerX + innerBotR, bottomY),
                     new Point(centerX + innerTopR, topY)
                 }
-                    };
-                    Root.Children.Add(rightPoly);
+                        };
+                        Root.Children.Add(rightPoly);
 
-                    //管内液体区域 
-                    
-                    double halfStroke = LineWeight / 2.0;// 线宽一半，用于补偿
-                    // 把液体区域整体往里缩 halfStroke
-                    double topYInside = topY + halfStroke;
-                    double bottomYInside = bottomY - halfStroke;
+                        //管内液体区域 
 
-                    double innerTopRInside = Math.Max(0, innerTopR - halfStroke);
-                    double innerBotRInside = Math.Max(0, innerBotR - halfStroke);
+                        double halfStroke = LineWeight / 2.0;// 线宽一半，用于补偿
+                                                             // 把液体区域整体往里缩 halfStroke
+                        double topYInside = topY + halfStroke;
+                        double bottomYInside = bottomY - halfStroke;
 
-                    // 管内液体区域
-                    var insidePoly = new System.Windows.Shapes.Polygon
-                    {
-                        Fill = InsideBrush,
-                        Stroke = null,
-                        StrokeThickness = 0,
-                        Points = new PointCollection
+                        double innerTopRInside = Math.Max(0, innerTopR - halfStroke);
+                        double innerBotRInside = Math.Max(0, innerBotR - halfStroke);
+
+                        // 管内液体区域
+                        var insidePoly = new System.Windows.Shapes.Polygon
+                        {
+                            Fill = InsideBrush,
+                            Stroke = null,
+                            StrokeThickness = 0,
+                            Points = new PointCollection
                         {
                             new Point(centerX - innerTopRInside, topYInside),    // 左上
                             new Point(centerX - innerBotRInside, bottomYInside), // 左下
                             new Point(centerX + innerBotRInside, bottomYInside), // 右下
                             new Point(centerX + innerTopRInside, topYInside)     // 右上
                         }
-                    };
-                    Root.Children.Add(insidePoly);
-
-
-                    // 实例引用
-                    double maxOuterR = Math.Max(outerTopR, outerBotR);
-                    double leftX = centerX - maxOuterR;
-                    double width = maxOuterR * 2;
-                    double height = bottomY - topY;
-
-                    _sectionRegions.Add(new SectionRegion
-                    {
-                        CTIndex = ctIndex,
-                        SectionIndex = secIndex,
-                        Bounds = new Rect(leftX, topY, width, height),
-                        LeftWall = leftPoly,
-                        RightWall = rightPoly,
-                        InsideShape = insidePoly,
-                        InsideOriginalBrush = insidePoly.Fill
-                    });
-
-                    //结构焊缝 
-                    bool isLastSectionOverall =
-                        (ctIndex == CTs.Count - 1) && (secIndex == ct.Count - 1);
-
-                    if (!isLastSectionOverall)
-                    {
-                        var weldLine = new System.Windows.Shapes.Line
-                        {
-                            X1 = centerX - outerBotR,
-                            X2 = centerX + outerBotR,
-                            Y1 = bottomY,
-                            Y2 = bottomY,
-                            Stroke = WeldBrush,
-                            StrokeThickness = LineWeight
                         };
-                        Root.Children.Add(weldLine);
+                        Root.Children.Add(insidePoly);
 
-                        structuralWeldFromTop.Add(bottomM);
-                    }
 
-                    //自由焊缝
-                    if (s.FreeWeldPositions != null && s.FreeWeldPositions.Count > 0)
-                    {
-                        foreach (var localPos in s.FreeWeldPositions)
+                        // 实例引用
+                        double maxOuterR = Math.Max(outerTopR, outerBotR);
+                        double leftX = centerX - maxOuterR;
+                        double width = maxOuterR * 2;
+                        double height = bottomY - topY;
+
+                        _sectionRegions.Add(new SectionRegion
                         {
-                            if (localPos < 0 || localPos > s.Length)
-                                continue;
+                            CTIndex = ctIndex,
+                            SectionIndex = secIndex,
+                            Bounds = new Rect(leftX, topY, width, height),
+                            LeftWall = leftPoly,
+                            RightWall = rightPoly,
+                            InsideShape = insidePoly,
+                            InsideOriginalBrush = insidePoly.Fill
+                        });
 
-                            double tt = s.Length <= 0 ? 0 : localPos / s.Length;
-                            double outerRAtWeld = outerTopR + (outerBotR - outerTopR) * tt;
-                            double weldGlobalM = topM + localPos;
-                            double weldY = marginTop + weldGlobalM * meterToPixel + ctOffsetPixel;
+                        //结构焊缝 
+                        bool isLastSectionOverall =
+                            (ctIndex == CTs.Count - 1) && (secIndex == ct.Count - 1);
 
-                            var freeWeldLine = new System.Windows.Shapes.Line
+                        if (!isLastSectionOverall)
+                        {
+                            var weldLine = new System.Windows.Shapes.Line
                             {
-                                X1 = centerX - outerRAtWeld,
-                                X2 = centerX + outerRAtWeld,
-                                Y1 = weldY,
-                                Y2 = weldY,
-                                Stroke = FreeWeldBrush,
+                                X1 = centerX - outerBotR,
+                                X2 = centerX + outerBotR,
+                                Y1 = bottomY,
+                                Y2 = bottomY,
+                                Stroke = WeldBrush,
                                 StrokeThickness = LineWeight
                             };
-                            Root.Children.Add(freeWeldLine);
+                            Root.Children.Add(weldLine);
+
+                            structuralWeldFromTop.Add(bottomM);
                         }
+
+                        //自由焊缝
+                        if (s.FreeWeldPositions != null && s.FreeWeldPositions.Count > 0)
+                        {
+                            foreach (var localPos in s.FreeWeldPositions)
+                            {
+                                if (localPos < 0 || localPos > s.Length)
+                                    continue;
+
+                                double tt = s.Length <= 0 ? 0 : localPos / s.Length;
+                                double outerRAtWeld = outerTopR + (outerBotR - outerTopR) * tt;
+                                double weldGlobalM = topM + localPos;
+                                double weldY = marginTop + weldGlobalM * meterToPixel + ctOffsetPixel;
+
+                                var freeWeldLine = new System.Windows.Shapes.Line
+                                {
+                                    X1 = centerX - outerRAtWeld,
+                                    X2 = centerX + outerRAtWeld,
+                                    Y1 = weldY,
+                                    Y2 = weldY,
+                                    Stroke = FreeWeldBrush,
+                                    StrokeThickness = LineWeight
+                                };
+                                Root.Children.Add(freeWeldLine);
+                            }
+                        }
+
+                        globalMeter = bottomM; // 下一段
                     }
-
-                    globalMeter = bottomM; // 下一段
                 }
-            }
 
-            // 画右侧标尺
-            DrawRuler(totalLength);
+                // 画右侧标尺
+                DrawRuler(totalLength);
+            }
+            catch (Exception)
+            {
+
+            }
         }
 
 
@@ -1303,7 +1310,9 @@ namespace StringDiagram
             //if (rulerHeight <= 0) rulerHeight = Root.Height > 0 ? Root.Height : ConTainerHeight;
 
 
-            double rulerHeight = Root.ActualWidth > 0 ? Root.ActualWidth : ConTainerHeight;
+            // 这里必须使用 Root 的高度，否则在重新布局（例如调用 AppendCT 后）时，
+            // 会因为 ActualWidth 有值而把 ruler 的高度错误设成 Root 的宽度，导致标尺区域变小。
+            double rulerHeight = Root.ActualHeight > 0 ? Root.ActualHeight : ConTainerHeight;
             double rulerWidth = ruler.ActualWidth > 0 ? ruler.ActualWidth : 50;
 
             ruler.Width = rulerWidth;
@@ -1412,6 +1421,8 @@ namespace StringDiagram
 
             double rulerHeight = Root.Height > 0 ? Root.Height : ConTainerHeight;
             double rulerWidth = ruler.ActualWidth > 0 ? ruler.ActualWidth : 50;
+
+
 
             ruler.Width = rulerWidth;
             ruler.Height = rulerHeight;
