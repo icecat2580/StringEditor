@@ -883,6 +883,11 @@ namespace StringDiagram
         {
             return;
         }
+        //设置右边距
+        public void SetRightMargin(double RightWidth)
+        {
+            return;
+        }
         #endregion
 
 
@@ -1714,6 +1719,8 @@ namespace StringDiagram
             RedrawSections();
 
         }
+
+
 
 
 

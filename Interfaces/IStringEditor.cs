@@ -76,7 +76,9 @@ namespace StringDiagram.Interfaces
         //获取绘图区域
         void   GetDrawIngRegion(out Point LeftBottomPoint,out Point RightBottomPoint);
         //设置左侧边距
-        void SetLeftMargin(double LeftWidth);
+        void SetLeftMargin(double LeftWidth);   
+        //设置右侧边距
+        void SetRightMargin(double RightWidth);
         //设置显示单位
         void SetDisplayUnit(string unit);
         //根据文件路径设置当前连接器样式

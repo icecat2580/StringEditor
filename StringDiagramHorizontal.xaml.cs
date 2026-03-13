@@ -788,6 +788,12 @@ namespace StringDiagram
             RedrawSections();
         }
 
+        public void SetRightMargin(double RightWidth)
+        {
+            marginRight=RightWidth;
+            RedrawSections();
+        }
+
         #endregion
 
 
