@@ -85,6 +85,8 @@ namespace StringDiagram.Interfaces
         void SetConnnectorByFilePath(int CTIndex, string FilePath);
         //根据字节数组设置连接器样式
         void SetConnectorByByteArry(int CTIndex,byte[] ByteArry);
+        //是否切换到调试模式(true显示绘图区域，false不显示绘图区域)
+        void SetDebugMode(bool DebugMode);
 
     }
 }

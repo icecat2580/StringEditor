@@ -888,6 +888,20 @@ namespace StringDiagram
         {
             return;
         }
+        //是否为调试模式
+        public void SetDebugMode(bool DebugMode)
+        {
+            if (DebugMode)
+            {
+                ruler.Background = Brushes.Red;
+                Root.Background = Brushes.Purple;
+            }
+            else
+            {
+                ruler.Background = Brushes.Transparent;
+                Root.Background = Brushes.Transparent;
+            }
+        }
         #endregion
 
 
@@ -1719,6 +1733,8 @@ namespace StringDiagram
             RedrawSections();
 
         }
+
+
 
 
 

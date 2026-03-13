@@ -8,7 +8,6 @@
     x:Name="UC"
     Width="150"
     Height="Auto"
-    d:Background="Red"
     x:ClassModifier="internal"
     d:DesignHeight="450"
     d:DesignWidth="800"
@@ -44,13 +43,15 @@
             Grid.Column="0"
             Width="70"
             Height="{Binding ElementName=UC, Path=Height}"
-            SnapsToDevicePixels="True" />
+            SnapsToDevicePixels="True"
+            Background="Transparent" />
         <!--  标尺绘画区域  -->
         <Canvas
             x:Name="ruler"
             Grid.Column="1"
             Height="{Binding ElementName=UC, Path=Height}"
-            SnapsToDevicePixels="True">
+            SnapsToDevicePixels="True"
+            Background="Transparent">
         </Canvas>
 
     </Grid>

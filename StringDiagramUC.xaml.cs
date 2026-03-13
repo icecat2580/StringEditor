@@ -641,15 +641,14 @@ namespace StringDiagram
          => _current.SetDisplayUnit(unit);
 
         public void SetConnnectorByFilePath(int CTIndex, string FilePath)
-        {
-            _current.SetConnnectorByFilePath(CTIndex, FilePath);
-        }
 
+           => _current.SetConnnectorByFilePath(CTIndex, FilePath);
 
         public void SetConnectorByByteArry(int CTIndex, byte[] ByteArry)
-        {
-            _current.SetConnectorByByteArry(CTIndex, ByteArry);
-        }
+           => _current.SetConnectorByByteArry(CTIndex, ByteArry);
+
+        public void SetDebugMode(bool DebugMode)
+            =>_current.SetDebugMode(DebugMode);
         #endregion
 
 
