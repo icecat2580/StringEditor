@@ -56,6 +56,8 @@
     <Compile Include="Interfaces\IStringEditor.cs" />
     <Compile Include="Models\CtTopImageInfo.cs" />
     <Compile Include="Models\FreeWeldInfo.cs" />
+    <Compile Include="Models\DeratingZoneItem.cs" />
+    <Compile Include="Models\DeratingZonePalette.cs" />
     <Compile Include="Models\SectionInfo.cs" />
     <Compile Include="Models\SectionRegion.cs" />
     <Compile Include="StringDiagramHorizontal.xaml.cs">

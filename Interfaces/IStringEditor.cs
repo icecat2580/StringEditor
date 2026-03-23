@@ -1,4 +1,4 @@
-﻿using StringDiagram.Enums;
+using StringDiagram.Enums;
 using System;
 using System.Windows;
 using System.Windows.Media;
@@ -87,6 +87,22 @@ namespace StringDiagram.Interfaces
         void SetConnectorByByteArry(int CTIndex,byte[] ByteArry);
         //是否切换到调试模式(true显示绘图区域，false不显示绘图区域)
         void SetDebugMode(bool DebugMode);
-
+        //切换到降额显示模式，默认为false
+        void SetZoneMode(bool IsZoneMode);
+        /// <summary>
+        /// 插入降额信息
+        /// </summary>
+        /// <param name="StartPos">从滚筒端开始的起始位置</param>
+        /// <param name="EndPos">从滚筒端开始的结束位置</param>
+        /// <param name="ZoneValue">当前的降额值（0到1）</param>
+        void InsertZone(double StartPos,double EndPos,double ZoneValue);
+        /// <summary>
+        /// 设置选中的降额段（与连续管分段选中互斥）。
+        /// 若参数无效（如负数、NaN、ZoneValue 不在 0～1、区间长度为零等），则取消降额选中。
+        /// </summary>
+        void SelectZone(double StartPos,double EndPos,double ZoneValue);
+        /// <summary>清空所有降额数据与绘制（连续管内降额带、Zone 示意图、降额选中效果）。</summary>
+        void ClearZone();
+      
     }
 }

@@ -1,4 +1,4 @@
-﻿using StringDiagram.Enums;
+using StringDiagram.Enums;
 using StringDiagram.Extensions;
 using StringDiagram.Models;
 using System;
@@ -808,6 +808,26 @@ namespace StringDiagram
             }
         }
 
+        /// <summary>横向图暂不绘制降额带，忽略。</summary>
+        public void SetZoneMode(bool isZoneMode)
+        {
+        }
+
+        /// <summary>横向图暂不绘制降额带，忽略。</summary>
+        public void InsertZone(double startPos, double endPos, double zoneValue)
+        {
+        }
+
+        /// <summary>横向图暂不支持降额选中，忽略。</summary>
+        public void SelectZone(double startPos, double endPos, double zoneValue)
+        {
+        }
+
+        /// <summary>横向图无降额绘制，忽略。</summary>
+        public void ClearZone()
+        {
+        }
+
         #endregion
 
 
@@ -817,8 +837,11 @@ namespace StringDiagram
         #region 绘制（水平）
         private double marginLeft = 25;
         private double marginRight = 25;
+        private int count = 0;
         private void RedrawSections()
         {
+            count++;
+            Console.WriteLine($"第{count}次重绘");
             if (Root == null)
                 return;
 

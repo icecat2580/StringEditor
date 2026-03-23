@@ -1,4 +1,4 @@
-﻿using StringDiagram.Enums;
+using StringDiagram.Enums;
 using StringDiagram.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -649,6 +649,18 @@ namespace StringDiagram
 
         public void SetDebugMode(bool DebugMode)
             =>_current.SetDebugMode(DebugMode);
+
+        public void SetZoneMode(bool isZoneMode)
+            => _Vertical?.SetZoneMode(isZoneMode);
+
+        public void InsertZone(double startPos, double endPos, double zoneValue)
+            => _Vertical?.InsertZone(startPos, endPos, zoneValue);
+
+        public void SelectZone(double startPos, double endPos, double zoneValue)
+            => _Vertical?.SelectZone(startPos, endPos, zoneValue);
+
+        public void ClearZone()
+            => _Vertical?.ClearZone();
         #endregion
 
 
