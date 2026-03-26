@@ -33,8 +33,7 @@ namespace StringDiagram
         };
         private readonly List<SectionRegion> _sectionRegions = new List<SectionRegion>();
         private readonly List<CtTopImageInfo> _ctTopImages = new List<CtTopImageInfo>();
-        /// <summary>降额显示模式；为 true 时在管柱上叠加降额半透明带。</summary>
-        private bool _zoneMode;
+        private readonly HashSet<int> _zoneModeCTIndices = new HashSet<int>();
         private readonly List<DeratingZoneItem> _deratingZones = new List<DeratingZoneItem>();
         private sealed class ZoneCandidate
         {
@@ -56,7 +55,14 @@ namespace StringDiagram
             public int ZoneIndex;
             public bool IsOverlay;
         }
+        private sealed class CtMetric
+        {
+            public int CTIndex;
+            public double StartMeter;
+            public double LengthMeter;
+        }
         public event Action<int, int> OnSelectedSectionhandler;
+        public event Action<int, int> OnSelectedZonehandler;
         // 纵向缩放
         public double MeterToPixel { get; set; } = 0.5 * 10000;
 
@@ -621,6 +627,28 @@ namespace StringDiagram
             if (ctIndex < _ctTopImages.Count)
                 _ctTopImages.RemoveAt(ctIndex);
 
+            _deratingZones.RemoveAll(z => z.CTIndex == ctIndex);
+            foreach (var z in _deratingZones)
+            {
+                if (z.CTIndex > ctIndex)
+                    z.CTIndex--;
+            }
+
+            var newModes = new HashSet<int>();
+            foreach (int idx in _zoneModeCTIndices)
+            {
+                if (idx == ctIndex)
+                    continue;
+                newModes.Add(idx > ctIndex ? idx - 1 : idx);
+            }
+            _zoneModeCTIndices.Clear();
+            foreach (int idx in newModes)
+                _zoneModeCTIndices.Add(idx);
+
+            if (_selectedZoneIndex >= 0)
+                _selectedZoneIndex = -1;
+            ClearZoneSelectionVisuals(false);
+
             // 重新修正一下 CTIndex
             for (int i = 0; i < _ctTopImages.Count; i++)
                 _ctTopImages[i].CTIndex = i;
@@ -637,6 +665,7 @@ namespace StringDiagram
             CTs.Clear();
             _ctTopImages.Clear();
             _deratingZones.Clear();
+            _zoneModeCTIndices.Clear();
             ClearZoneSelectionVisuals(true);
             RedrawSections();
         }
@@ -657,6 +686,19 @@ namespace StringDiagram
                 CTIndex = ctIndex,
                 TopIconKind = TopIconKind.Default
             });
+
+            foreach (var z in _deratingZones)
+            {
+                if (z.CTIndex >= ctIndex)
+                    z.CTIndex++;
+            }
+
+            var newModes = new HashSet<int>();
+            foreach (int idx in _zoneModeCTIndices)
+                newModes.Add(idx >= ctIndex ? idx + 1 : idx);
+            _zoneModeCTIndices.Clear();
+            foreach (int idx in newModes)
+                _zoneModeCTIndices.Add(idx);
 
             RedrawSections();
         }
@@ -749,7 +791,9 @@ namespace StringDiagram
         public void SetDisplayUnit(string unit)
         {
             DisplayUnit = unit;
+            Console.WriteLine($"{DateTime.Now}:单位设置成功,当前单位{unit}");
             RedrawSections();
+            Console.WriteLine($"{DateTime.Now}:重绘完成,当前单位{unit}");
         }
 
 
@@ -941,17 +985,33 @@ namespace StringDiagram
         }
 
         /// <inheritdoc />
-        public void SetZoneMode(bool isZoneMode)
+        public void SetZoneMode(int ctIndex, bool isZoneMode)
         {
-            _zoneMode = isZoneMode;
-            if (!isZoneMode)
-                ClearZoneSelectionVisuals(true);
+            if (ctIndex >= 0 && ctIndex < CTs.Count)
+            {
+                if (isZoneMode)
+                    _zoneModeCTIndices.Add(ctIndex);
+                else
+                {
+                    _zoneModeCTIndices.Remove(ctIndex);
+                    _deratingZones.RemoveAll(z => z.CTIndex == ctIndex);
+                    ClearZoneSelectionVisuals(true);
+                }
+            }
+
             RedrawSections();
         }
 
         /// <inheritdoc />
-        public void InsertZone(double startPos, double endPos, double zoneValue)
+        public void InsertZone(int ctIndex, int zoneIndex, double startPos, double endPos, double zoneValue)
         {
+            if (ctIndex < 0 || ctIndex >= CTs.Count)
+                return;
+            if (!_zoneModeCTIndices.Contains(ctIndex))
+                return;
+            if (zoneIndex < 0)
+                return;
+
             if (endPos < startPos)
             {
                 double t = startPos;
@@ -959,9 +1019,25 @@ namespace StringDiagram
                 endPos = t;
             }
 
+            if (startPos < 0 || endPos < 0)
+                return;
+
+            double ctLength = 0;
+            foreach (var sec in CTs[ctIndex])
+                ctLength += sec.Length;
+            if (ctLength <= 0)
+                return;
+
+            startPos = Math.Max(0, Math.Min(ctLength, startPos));
+            endPos = Math.Max(0, Math.Min(ctLength, endPos));
+            if (endPos - startPos <= 1e-6)
+                return;
+
             zoneValue = Math.Max(0, Math.Min(1, zoneValue));
             _deratingZones.Add(new DeratingZoneItem
             {
+                CTIndex = ctIndex,
+                ZoneIndex = zoneIndex,
                 StartPos = startPos,
                 EndPos = endPos,
                 ZoneValue = zoneValue
@@ -970,30 +1046,11 @@ namespace StringDiagram
         }
 
         /// <inheritdoc />
-        public void SelectZone(double startPos, double endPos, double zoneValue)
+        public void SelectZone(int ctIndex, int zoneIndex)
         {
-            const double eps = 1e-6;
-
-            // 参数不合理：取消降额选中（不抛异常）
-            if (double.IsNaN(startPos) || double.IsNaN(endPos) || double.IsNaN(zoneValue) ||
-                double.IsInfinity(startPos) || double.IsInfinity(endPos) || double.IsInfinity(zoneValue) ||
-                startPos < 0 || endPos < 0 ||
-                zoneValue < 0 || zoneValue > 1)
+            if (ctIndex < 0 || ctIndex >= CTs.Count || zoneIndex < 0)
             {
-                SetSelectedZoneByIndex(-1);
-                return;
-            }
-
-            if (endPos < startPos)
-            {
-                double t = startPos;
-                startPos = endPos;
-                endPos = t;
-            }
-
-            if (endPos - startPos < eps)
-            {
-                SetSelectedZoneByIndex(-1);
+                SetSelectedZoneByIndex(-1, false);
                 return;
             }
 
@@ -1001,27 +1058,31 @@ namespace StringDiagram
             for (int i = _deratingZones.Count - 1; i >= 0; i--)
             {
                 var z = _deratingZones[i];
-                if (Math.Abs(z.StartPos - startPos) <= eps &&
-                    Math.Abs(z.EndPos - endPos) <= eps &&
-                    Math.Abs(z.ZoneValue - zoneValue) <= eps)
+                if (z.CTIndex == ctIndex &&
+                    z.ZoneIndex == zoneIndex)
                 {
                     hitIndex = i;
                     break;
                 }
             }
-
-            SetSelectedZoneByIndex(hitIndex);
+            Console.WriteLine("执行选中函数，不触发委托");
+            SetSelectedZoneByIndex(hitIndex, false);
         }
 
         /// <inheritdoc />
-        public void ClearZone()
+        public void ClearZone(int ctIndex)
         {
-            _deratingZones.Clear();
-            ClearZoneSelectionVisuals(true);
+            if (ctIndex < 0 || ctIndex >= CTs.Count)
+                return;
+
+            _deratingZones.RemoveAll(z => z.CTIndex == ctIndex);
+            _zoneModeCTIndices.Remove(ctIndex);
+            if (_selectedZoneIndex >= 0)
+                ClearZoneSelectionVisuals(true);
             RedrawSections();
         }
 
-        private void SetSelectedZoneByIndex(int zoneIndex)
+        private void SetSelectedZoneByIndex(int zoneIndex, bool raiseEvent)
         {
             if (zoneIndex < 0 || zoneIndex >= _deratingZones.Count)
             {
@@ -1035,6 +1096,11 @@ namespace StringDiagram
             ClearZoneSelectionVisuals(false);
 
             _selectedZoneIndex = zoneIndex;
+            if (raiseEvent)
+            {
+                var zone = _deratingZones[zoneIndex];
+                OnSelectedZonehandler?.Invoke(zone.CTIndex, zone.ZoneIndex);
+            }
             RedrawSections();
         }
 
@@ -1093,101 +1159,106 @@ namespace StringDiagram
             double connectorGapPixel,
             double diameterToPixel,
             double minWall,
-            double maxWall)
+            double maxWall,
+            List<CtMetric> ctMetrics)
         {
             if (SelectionOverlay == null || _selectedZoneIndex < 0 || _selectedZoneIndex >= _deratingZones.Count)
                 return;
 
             var selected = _deratingZones[_selectedZoneIndex];
+            if (selected.CTIndex < 0 || selected.CTIndex >= CTs.Count)
+                return;
+            if (!_zoneModeCTIndices.Contains(selected.CTIndex))
+                return;
+
+            int ctIndex = selected.CTIndex;
+            var ctMetric = ctMetrics[ctIndex];
+            var ct = CTs[ctIndex];
             double zStart = Math.Min(selected.StartPos, selected.EndPos);
             double zEnd = Math.Max(selected.StartPos, selected.EndPos);
             const double eps = 1e-6;
             if (zEnd - zStart < eps)
                 return;
 
-            double globalMeter = 0.0;
-            for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
+            double ctLocalAcc = 0.0;
+            double ctOffsetPixel = connectorGapPixel * ctIndex;
+            for (int secIndex = 0; secIndex < ct.Count; secIndex++)
             {
-                var ct = CTs[ctIndex];
-                double ctOffsetPixel = connectorGapPixel * ctIndex;
-                for (int secIndex = 0; secIndex < ct.Count; secIndex++)
+                var s = ct[secIndex];
+                double topM = ctLocalAcc;
+                double bottomM = ctLocalAcc + s.Length;
+
+                double intersectStart = Math.Max(zStart, topM);
+                double intersectEnd = Math.Min(zEnd, bottomM);
+                if (intersectEnd - intersectStart < eps)
                 {
-                    var s = ct[secIndex];
-                    double topM = globalMeter;
-                    double bottomM = globalMeter + s.Length;
-
-                    double intersectStart = Math.Max(zStart, topM);
-                    double intersectEnd = Math.Min(zEnd, bottomM);
-                    if (intersectEnd - intersectStart < eps)
-                    {
-                        globalMeter = bottomM;
-                        continue;
-                    }
-
-                    double len = s.Length;
-                    if (len < eps)
-                    {
-                        globalMeter = bottomM;
-                        continue;
-                    }
-
-                    double outerTopR = s.OuterDiameterOfReelEnd * diameterToPixel;
-                    double outerBotR = s.OuterDiameterOfFreeEnd * diameterToPixel;
-                    double wallTopPhys = s.OuterDiameterOfReelEnd - s.InnerDiameterOfReelEnd;
-                    double wallBotPhys = s.OuterDiameterOfFreeEnd - s.InnerDiameterOfFreeEnd;
-
-                    double tTop = 0.5;
-                    double tBot = 0.5;
-                    if (maxWall - minWall > eps)
-                    {
-                        tTop = (wallTopPhys - minWall) / (maxWall - minWall);
-                        tBot = (wallBotPhys - minWall) / (maxWall - minWall);
-                        tTop = Math.Max(0.0, Math.Min(1.0, tTop));
-                        tBot = Math.Max(0.0, Math.Min(1.0, tBot));
-                    }
-
-                    double wallFracTopTotal = MinWallFracTotal + (MaxWallFracTotal - MinWallFracTotal) * tTop;
-                    double wallFracBotTotal = MinWallFracTotal + (MaxWallFracTotal - MinWallFracTotal) * tBot;
-                    double innerTopR = outerTopR * (1 - wallFracTopTotal);
-                    double innerBotR = outerBotR * (1 - wallFracBotTotal);
-
-                    double t0 = (intersectStart - topM) / len;
-                    double t1 = (intersectEnd - topM) / len;
-                    t0 = Math.Max(0.0, Math.Min(1.0, t0));
-                    t1 = Math.Max(0.0, Math.Min(1.0, t1));
-
-                    double innerR0 = innerTopR + t0 * (innerBotR - innerTopR);
-                    double innerR1 = innerTopR + t1 * (innerBotR - innerTopR);
-
-                    double yTop = SnapY(marginTop + intersectStart * meterToPixel + ctOffsetPixel);
-                    double yBottom = SnapY(marginTop + intersectEnd * meterToPixel + ctOffsetPixel);
-                    if (yBottom < yTop)
-                    {
-                        double tmp = yTop;
-                        yTop = yBottom;
-                        yBottom = tmp;
-                    }
-
-                    var overlay = new System.Windows.Shapes.Polygon
-                    {
-                        Fill = SelectedZoneBrush,
-                        Stroke = null,
-                        StrokeThickness = 0,
-                        IsHitTestVisible = false,
-                        Tag = new ZoneVisualTag { ZoneIndex = _selectedZoneIndex, IsOverlay = true },
-                        Points = new PointCollection
-                        {
-                            new Point(centerX - innerR0, yTop),
-                            new Point(centerX + innerR0, yTop),
-                            new Point(centerX + innerR1, yBottom),
-                            new Point(centerX - innerR1, yBottom)
-                        }
-                    };
-                    SelectionOverlay.Children.Add(overlay);
-                    _selectedZoneOverlays.Add(overlay);
-
-                    globalMeter = bottomM;
+                    ctLocalAcc = bottomM;
+                    continue;
                 }
+
+                double len = s.Length;
+                if (len < eps)
+                {
+                    ctLocalAcc = bottomM;
+                    continue;
+                }
+
+                double outerTopR = s.OuterDiameterOfReelEnd * diameterToPixel;
+                double outerBotR = s.OuterDiameterOfFreeEnd * diameterToPixel;
+                double wallTopPhys = s.OuterDiameterOfReelEnd - s.InnerDiameterOfReelEnd;
+                double wallBotPhys = s.OuterDiameterOfFreeEnd - s.InnerDiameterOfFreeEnd;
+
+                double tTop = 0.5;
+                double tBot = 0.5;
+                if (maxWall - minWall > eps)
+                {
+                    tTop = (wallTopPhys - minWall) / (maxWall - minWall);
+                    tBot = (wallBotPhys - minWall) / (maxWall - minWall);
+                    tTop = Math.Max(0.0, Math.Min(1.0, tTop));
+                    tBot = Math.Max(0.0, Math.Min(1.0, tBot));
+                }
+
+                double wallFracTopTotal = MinWallFracTotal + (MaxWallFracTotal - MinWallFracTotal) * tTop;
+                double wallFracBotTotal = MinWallFracTotal + (MaxWallFracTotal - MinWallFracTotal) * tBot;
+                double innerTopR = outerTopR * (1 - wallFracTopTotal);
+                double innerBotR = outerBotR * (1 - wallFracBotTotal);
+
+                double t0 = (intersectStart - topM) / len;
+                double t1 = (intersectEnd - topM) / len;
+                t0 = Math.Max(0.0, Math.Min(1.0, t0));
+                t1 = Math.Max(0.0, Math.Min(1.0, t1));
+
+                double innerR0 = innerTopR + t0 * (innerBotR - innerTopR);
+                double innerR1 = innerTopR + t1 * (innerBotR - innerTopR);
+
+                double yTop = SnapY(marginTop + (ctMetric.StartMeter + intersectStart) * meterToPixel + ctOffsetPixel);
+                double yBottom = SnapY(marginTop + (ctMetric.StartMeter + intersectEnd) * meterToPixel + ctOffsetPixel);
+                if (yBottom < yTop)
+                {
+                    double tmp = yTop;
+                    yTop = yBottom;
+                    yBottom = tmp;
+                }
+
+                var overlay = new System.Windows.Shapes.Polygon
+                {
+                    Fill = SelectedZoneBrush,
+                    Stroke = null,
+                    StrokeThickness = 0,
+                    IsHitTestVisible = false,
+                    Tag = new ZoneVisualTag { ZoneIndex = _selectedZoneIndex, IsOverlay = true },
+                    Points = new PointCollection
+                    {
+                        new Point(centerX - innerR0, yTop),
+                        new Point(centerX + innerR0, yTop),
+                        new Point(centerX + innerR1, yBottom),
+                        new Point(centerX - innerR1, yBottom)
+                    }
+                };
+                SelectionOverlay.Children.Add(overlay);
+                _selectedZoneOverlays.Add(overlay);
+
+                ctLocalAcc = bottomM;
             }
         }
         #endregion
@@ -1347,7 +1418,8 @@ namespace StringDiagram
                 : 0;
 
             double centerX = rootWidth / 2.0;
-            DrawZoneOverview(marginTop, meterToPixel, connectorGapPixel, totalLength);
+            var ctMetrics = BuildCtMetrics();
+            DrawZoneOverview(marginTop, meterToPixel, connectorGapPixel, ctMetrics);
 
             var structuralWeldFromTop = new List<double>();
             double globalMeter = 0.0;
@@ -1355,7 +1427,7 @@ namespace StringDiagram
             const double eps = 1e-6;
 
             // 降额带最先加入 Root，保证在左右管壁描边/管内/焊缝之下（Canvas 后添加的在上层）
-            DrawDeratingZones(marginTop, centerX, meterToPixel, connectorGapPixel, diameterToPixel, minWall, maxWall);
+            DrawDeratingZones(marginTop, centerX, meterToPixel, connectorGapPixel, diameterToPixel, minWall, maxWall, ctMetrics);
 
             for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
             {
@@ -1563,20 +1635,36 @@ namespace StringDiagram
                 }
             }
 
-            DrawSelectedZoneOverlayOnRoot(marginTop, centerX, meterToPixel, connectorGapPixel, diameterToPixel, minWall, maxWall);
+            DrawSelectedZoneOverlayOnRoot(marginTop, centerX, meterToPixel, connectorGapPixel, diameterToPixel, minWall, maxWall, ctMetrics);
 
             DrawRuler(totalLength);
         }
 
+        private List<CtMetric> BuildCtMetrics()
+        {
+            var metrics = new List<CtMetric>(CTs.Count);
+            double acc = 0.0;
+            for (int i = 0; i < CTs.Count; i++)
+            {
+                double len = 0.0;
+                var ct = CTs[i];
+                for (int j = 0; j < ct.Count; j++)
+                    len += ct[j].Length;
+                metrics.Add(new CtMetric { CTIndex = i, StartMeter = acc, LengthMeter = len });
+                acc += len;
+            }
+            return metrics;
+        }
+
         /// <summary>
-        /// 将重叠降额区间解析成不重叠片段。
+        /// 将单根连续管的重叠降额区间解析成不重叠片段。
         /// 规则：同一轴向位置存在多个降额时，后插入者优先，避免半透明叠色。
         /// </summary>
-        private List<ResolvedZoneSpan> ResolveDeratingSpans(double totalLength)
+        private List<ResolvedZoneSpan> ResolveDeratingSpansForCt(int ctIndex, double ctLength)
         {
             const double eps = 1e-6;
             var spans = new List<ResolvedZoneSpan>();
-            if (totalLength <= eps || _deratingZones.Count == 0)
+            if (ctLength <= eps || _deratingZones.Count == 0)
                 return spans;
 
             var candidates = new List<ZoneCandidate>();
@@ -1585,13 +1673,16 @@ namespace StringDiagram
             for (int i = 0; i < _deratingZones.Count; i++)
             {
                 var z = _deratingZones[i];
+                if (z.CTIndex != ctIndex)
+                    continue;
+
                 double start = Math.Min(z.StartPos, z.EndPos);
                 double end = Math.Max(z.StartPos, z.EndPos);
                 if (end - start < eps)
                     continue;
 
-                start = Math.Max(0, Math.Min(totalLength, start));
-                end = Math.Max(0, Math.Min(totalLength, end));
+                start = Math.Max(0, Math.Min(ctLength, start));
+                end = Math.Max(0, Math.Min(ctLength, end));
                 if (end - start < eps)
                     continue;
 
@@ -1610,7 +1701,6 @@ namespace StringDiagram
                 return spans;
 
             breakpoints.Sort();
-
             var unique = new List<double>(breakpoints.Count);
             for (int i = 0; i < breakpoints.Count; i++)
             {
@@ -1636,7 +1726,6 @@ namespace StringDiagram
                     var c = candidates[j];
                     if (mid >= c.Start && mid <= c.End)
                     {
-                        // 后插入优先（index 越大越新）
                         winnerIndex = c.Index;
                         winnerValue = c.Value;
                     }
@@ -1646,8 +1735,7 @@ namespace StringDiagram
                     continue;
 
                 var last = spans.Count > 0 ? spans[spans.Count - 1] : null;
-                if (last != null &&
-                    last.ZoneIndex == winnerIndex &&
+                if (last != null && last.ZoneIndex == winnerIndex &&
                     Math.Abs(last.ZoneValue - winnerValue) <= eps &&
                     Math.Abs(last.End - a) <= eps)
                 {
@@ -1678,61 +1766,60 @@ namespace StringDiagram
             double connectorGapPixel,
             double diameterToPixel,
             double minWall,
-            double maxWall)
+            double maxWall,
+            List<CtMetric> ctMetrics)
         {
-            if (!_zoneMode || _deratingZones.Count == 0)
+            if (_zoneModeCTIndices.Count == 0 || _deratingZones.Count == 0)
                 return;
 
             const double eps = 1e-6;
-            double totalLength = 0.0;
-            for (int i = 0; i < CTs.Count; i++)
+            for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
             {
-                var ct = CTs[i];
-                for (int j = 0; j < ct.Count; j++)
-                    totalLength += ct[j].Length;
-            }
-
-            var resolvedSpans = ResolveDeratingSpans(totalLength);
-            if (resolvedSpans.Count == 0)
-                return;
-
-            for (int zi = 0; zi < resolvedSpans.Count; zi++)
-            {
-                var zone = resolvedSpans[zi];
-                double zStart = zone.Start;
-                double zEnd = zone.End;
-                if (zEnd - zStart < eps)
+                if (!_zoneModeCTIndices.Contains(ctIndex))
                     continue;
 
-                var brush = new SolidColorBrush(DeratingZonePalette.GetZoneColor(zone.ZoneIndex, zone.ZoneValue));
-                if (brush.CanFreeze)
-                    brush.Freeze();
+                var ctMetric = ctMetrics[ctIndex];
+                if (ctMetric.LengthMeter <= eps)
+                    continue;
 
-                double globalMeter = 0.0;
+                var resolvedSpans = ResolveDeratingSpansForCt(ctIndex, ctMetric.LengthMeter);
+                if (resolvedSpans.Count == 0)
+                    continue;
 
-                for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
+                for (int zi = 0; zi < resolvedSpans.Count; zi++)
                 {
+                    var zone = resolvedSpans[zi];
+                    double zStart = zone.Start;
+                    double zEnd = zone.End;
+                    if (zEnd - zStart < eps)
+                        continue;
+
+                    var brush = new SolidColorBrush(DeratingZonePalette.GetZoneColor(zone.ZoneIndex, zone.ZoneValue));
+                    if (brush.CanFreeze)
+                        brush.Freeze();
+
                     var ct = CTs[ctIndex];
                     double ctOffsetPixel = connectorGapPixel * ctIndex;
+                    double ctLocalAcc = 0.0;
 
                     for (int secIndex = 0; secIndex < ct.Count; secIndex++)
                     {
                         var s = ct[secIndex];
-                        double topM = globalMeter;
-                        double bottomM = globalMeter + s.Length;
+                        double topLocal = ctLocalAcc;
+                        double bottomLocal = ctLocalAcc + s.Length;
 
-                        double intersectStart = Math.Max(zStart, topM);
-                        double intersectEnd = Math.Min(zEnd, bottomM);
+                        double intersectStart = Math.Max(zStart, topLocal);
+                        double intersectEnd = Math.Min(zEnd, bottomLocal);
                         if (intersectEnd - intersectStart < eps)
                         {
-                            globalMeter = bottomM;
+                            ctLocalAcc = bottomLocal;
                             continue;
                         }
 
                         double len = s.Length;
                         if (len < eps)
                         {
-                            globalMeter = bottomM;
+                            ctLocalAcc = bottomLocal;
                             continue;
                         }
 
@@ -1760,16 +1847,16 @@ namespace StringDiagram
                         double innerTopR = outerTopR * (1 - wallFracTopTotal);
                         double innerBotR = outerBotR * (1 - wallFracBotTotal);
 
-                        double t0 = (intersectStart - topM) / len;
-                        double t1 = (intersectEnd - topM) / len;
+                        double t0 = (intersectStart - topLocal) / len;
+                        double t1 = (intersectEnd - topLocal) / len;
                         t0 = Math.Max(0.0, Math.Min(1.0, t0));
                         t1 = Math.Max(0.0, Math.Min(1.0, t1));
 
                         double innerR0 = innerTopR + t0 * (innerBotR - innerTopR);
                         double innerR1 = innerTopR + t1 * (innerBotR - innerTopR);
 
-                        double yTop = SnapY(marginTop + intersectStart * meterToPixel + ctOffsetPixel);
-                        double yBottom = SnapY(marginTop + intersectEnd * meterToPixel + ctOffsetPixel);
+                        double yTop = SnapY(marginTop + (ctMetric.StartMeter + intersectStart) * meterToPixel + ctOffsetPixel);
+                        double yBottom = SnapY(marginTop + (ctMetric.StartMeter + intersectEnd) * meterToPixel + ctOffsetPixel);
                         if (yBottom < yTop)
                         {
                             double tmp = yTop;
@@ -1794,7 +1881,7 @@ namespace StringDiagram
                         };
                         Root.Children.Add(poly);
 
-                        globalMeter = bottomM;
+                        ctLocalAcc = bottomLocal;
                     }
                 }
             }
@@ -1807,7 +1894,7 @@ namespace StringDiagram
             double marginTop,
             double meterToPixel,
             double connectorGapPixel,
-            double totalLength)
+            List<CtMetric> ctMetrics)
         {
             if (Zone == null)
                 return;
@@ -1816,7 +1903,7 @@ namespace StringDiagram
             Zone.Height = ConTainerHeight;
 
             const double eps = 1e-6;
-            if (!_zoneMode || _deratingZones.Count == 0 || totalLength <= eps)
+            if (_zoneModeCTIndices.Count == 0 || _deratingZones.Count == 0)
             {
                 Zone.Width = 0;
                 return;
@@ -1824,116 +1911,128 @@ namespace StringDiagram
 
             const double defaultRectWidth = 15.0;
             const int maxVisibleRects = 6;
-            int zoneCount = _deratingZones.Count;
-
-            double maxContentWidth = maxVisibleRects * defaultRectWidth;
-            double containerWidth = zoneCount <= maxVisibleRects
-                ? zoneCount * defaultRectWidth
-                : maxContentWidth;
-            double rectWidth = zoneCount > 0 ? containerWidth / zoneCount : defaultRectWidth;
-            double rectStep = rectWidth;
-            double contentWidth = containerWidth;
-            Zone.Width = containerWidth;
-
-            double totalGapPixel = connectorGapPixel * Math.Max(CTs.Count - 1, 0);
-            double zoneTop = marginTop;
-            double zoneBottom = marginTop + totalLength * meterToPixel + totalGapPixel;
-            if (zoneBottom < zoneTop)
+            var activeCtIndices = _zoneModeCTIndices
+                .Where(i => i >= 0 && i < CTs.Count)
+                .Where(i => _deratingZones.Any(z => z.CTIndex == i))
+                .OrderBy(i => i)
+                .ToList();
+            if (activeCtIndices.Count == 0)
             {
-                double t = zoneTop;
-                zoneTop = zoneBottom;
-                zoneBottom = t;
+                Zone.Width = 0;
+                return;
             }
 
-            var containerBackground = new Rectangle
-            {
-                Width = containerWidth,
-                Height = Math.Max(0, zoneBottom - zoneTop),
-                Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CA9B9B")),
-                IsHitTestVisible = false
-            };
-            Canvas.SetLeft(containerBackground, 0);
-            Canvas.SetTop(containerBackground, zoneTop);
-            Zone.Children.Add(containerBackground);
+            double maxContainerWidth = 0.0;
+            var widthByCt = new Dictionary<int, double>();
+            var rectWidthByCt = new Dictionary<int, double>();
 
-            for (int zi = 0; zi < _deratingZones.Count; zi++)
+            foreach (int ctIndex in activeCtIndices)
             {
-                var z = _deratingZones[zi];
-                double zStart = Math.Min(z.StartPos, z.EndPos);
-                double zEnd = Math.Max(z.StartPos, z.EndPos);
-                if (zEnd - zStart < eps)
+                int zoneCount = _deratingZones.Count(z => z.CTIndex == ctIndex);
+                if (zoneCount <= 0)
                     continue;
 
-                // 从右向左追加：第 i 条在上一条基础上左移一个矩形宽度（10）
-                double xLeft = contentWidth - rectWidth - zi * rectStep;
-                var rgb = DeratingZonePalette.GetRgb(zi);
-                var fill = new SolidColorBrush(Color.FromRgb(rgb.R, rgb.G, rgb.B));
-                if (fill.CanFreeze)
-                    fill.Freeze();
-
-                double globalMeter = 0.0;
-                for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
-                {
-                    var ct = CTs[ctIndex];
-                    double ctOffsetPixel = connectorGapPixel * ctIndex;
-
-                    for (int secIndex = 0; secIndex < ct.Count; secIndex++)
-                    {
-                        var s = ct[secIndex];
-                        double topM = globalMeter;
-                        double bottomM = globalMeter + s.Length;
-
-                        double intersectStart = Math.Max(zStart, topM);
-                        double intersectEnd = Math.Min(zEnd, bottomM);
-                        if (intersectEnd - intersectStart < eps)
-                        {
-                            globalMeter = bottomM;
-                            continue;
-                        }
-
-                        double yTop = SnapY(marginTop + intersectStart * meterToPixel + ctOffsetPixel);
-                        double yBottom = SnapY(marginTop + intersectEnd * meterToPixel + ctOffsetPixel);
-                        if (yBottom < yTop)
-                        {
-                            double tmp = yTop;
-                            yTop = yBottom;
-                            yBottom = tmp;
-                        }
-
-                        var rect = new Rectangle
-                        {
-                            Width = rectWidth,
-                            Height = Math.Max(0, yBottom - yTop),
-                            Fill = fill,
-                            Stroke = null,
-                            IsHitTestVisible = true,
-                            Tag = new ZoneVisualTag { ZoneIndex = zi, IsOverlay = false }
-                        };
-                        Canvas.SetLeft(rect, xLeft);
-                        Canvas.SetTop(rect, yTop);
-                        Zone.Children.Add(rect);
-
-                        globalMeter = bottomM;
-                    }
-                }
+                double maxContentWidth = maxVisibleRects * defaultRectWidth;
+                double containerWidth = zoneCount <= maxVisibleRects ? zoneCount * defaultRectWidth : maxContentWidth;
+                double rectWidth = containerWidth / zoneCount;
+                widthByCt[ctIndex] = containerWidth;
+                rectWidthByCt[ctIndex] = rectWidth;
+                maxContainerWidth = Math.Max(maxContainerWidth, containerWidth);
             }
 
-            // 重绘时恢复降额选中叠加层（不修改原始矩形）
-            ApplyZoneSelectionVisuals();
+            Zone.Width = maxContainerWidth;
+            if (maxContainerWidth <= eps)
+                return;
 
-            // 最后覆盖边框层：保证“贴边无缝”的同时不遮挡黑色边界线
-            var containerBorder = new Rectangle
+            foreach (int ctIndex in activeCtIndices)
             {
-                Width = containerWidth,
-                Height = Math.Max(0, zoneBottom - zoneTop),
-                Fill = Brushes.Transparent,
-                Stroke = Brushes.Black,
-                StrokeThickness = 1,
-                IsHitTestVisible = false
-            };
-            Canvas.SetLeft(containerBorder, 0);
-            Canvas.SetTop(containerBorder, zoneTop);
-            Zone.Children.Add(containerBorder);
+                if (!widthByCt.ContainsKey(ctIndex))
+                    continue;
+
+                double containerWidth = widthByCt[ctIndex];
+                double rectWidth = rectWidthByCt[ctIndex];
+                double xContainer = maxContainerWidth - containerWidth;
+
+                var metric = ctMetrics[ctIndex];
+                double ctOffsetPixel = connectorGapPixel * ctIndex;
+                double zoneTop = SnapY(marginTop + metric.StartMeter * meterToPixel + ctOffsetPixel);
+                double zoneBottom = SnapY(marginTop + (metric.StartMeter + metric.LengthMeter) * meterToPixel + ctOffsetPixel);
+                if (zoneBottom < zoneTop)
+                {
+                    double t = zoneTop;
+                    zoneTop = zoneBottom;
+                    zoneBottom = t;
+                }
+
+                var containerBackground = new Rectangle
+                {
+                    Width = containerWidth,
+                    Height = Math.Max(0, zoneBottom - zoneTop),
+                    Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CA9B9B")),
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(containerBackground, xContainer);
+                Canvas.SetTop(containerBackground, zoneTop);
+                Zone.Children.Add(containerBackground);
+
+                var zonesOfCt = _deratingZones
+                    .Select((z, idx) => new { z, idx })
+                    .Where(x => x.z.CTIndex == ctIndex)
+                    .ToList();
+
+                for (int localIdx = 0; localIdx < zonesOfCt.Count; localIdx++)
+                {
+                    var zoneEntry = zonesOfCt[localIdx];
+                    var z = zoneEntry.z;
+                    double zStart = Math.Min(z.StartPos, z.EndPos);
+                    double zEnd = Math.Max(z.StartPos, z.EndPos);
+                    if (zEnd - zStart < eps)
+                        continue;
+
+                    double xLeft = xContainer + containerWidth - rectWidth - localIdx * rectWidth;
+                    var rgb = DeratingZonePalette.GetRgb(zoneEntry.idx);
+                    var fill = new SolidColorBrush(Color.FromRgb(rgb.R, rgb.G, rgb.B));
+                    if (fill.CanFreeze)
+                        fill.Freeze();
+
+                    double yTop = SnapY(marginTop + (metric.StartMeter + zStart) * meterToPixel + ctOffsetPixel);
+                    double yBottom = SnapY(marginTop + (metric.StartMeter + zEnd) * meterToPixel + ctOffsetPixel);
+                    if (yBottom < yTop)
+                    {
+                        double tmp = yTop;
+                        yTop = yBottom;
+                        yBottom = tmp;
+                    }
+
+                    var rect = new Rectangle
+                    {
+                        Width = rectWidth,
+                        Height = Math.Max(0, yBottom - yTop),
+                        Fill = fill,
+                        Stroke = null,
+                        IsHitTestVisible = true,
+                        Tag = new ZoneVisualTag { ZoneIndex = zoneEntry.idx, IsOverlay = false }
+                    };
+                    Canvas.SetLeft(rect, xLeft);
+                    Canvas.SetTop(rect, yTop);
+                    Zone.Children.Add(rect);
+                }
+
+                var containerBorder = new Rectangle
+                {
+                    Width = containerWidth,
+                    Height = Math.Max(0, zoneBottom - zoneTop),
+                    Fill = Brushes.Transparent,
+                    Stroke = Brushes.Black,
+                    StrokeThickness = 1,
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(containerBorder, xContainer);
+                Canvas.SetTop(containerBorder, zoneTop);
+                Zone.Children.Add(containerBorder);
+            }
+
+            ApplyZoneSelectionVisuals();
         }
 
         private void RedrawSections1()
@@ -2032,7 +2131,8 @@ namespace StringDiagram
                 : 0;
 
             double centerX = rootWidth / 2.0;
-            DrawZoneOverview(marginTop, meterToPixel, connectorGapPixel, totalLength);
+            var ctMetrics = BuildCtMetrics();
+            DrawZoneOverview(marginTop, meterToPixel, connectorGapPixel, ctMetrics);
 
             var structuralWeldFromTop = new List<double>();
             double globalMeter = 0.0;
@@ -2040,7 +2140,7 @@ namespace StringDiagram
             const double eps = 1e-6;
 
             // 降额带最先加入 Root，保证在左右管壁描边/管内/焊缝之下（Canvas 后添加的在上层）
-            DrawDeratingZones(marginTop, centerX, meterToPixel, connectorGapPixel, diameterToPixel, minWall, maxWall);
+            DrawDeratingZones(marginTop, centerX, meterToPixel, connectorGapPixel, diameterToPixel, minWall, maxWall, ctMetrics);
 
             for (int ctIndex = 0; ctIndex < CTs.Count; ctIndex++)
             {
@@ -2270,7 +2370,7 @@ namespace StringDiagram
                 }
             }
 
-            DrawSelectedZoneOverlayOnRoot(marginTop, centerX, meterToPixel, connectorGapPixel, diameterToPixel, minWall, maxWall);
+            DrawSelectedZoneOverlayOnRoot(marginTop, centerX, meterToPixel, connectorGapPixel, diameterToPixel, minWall, maxWall, ctMetrics);
 
             DrawRuler(totalLength);
         }
@@ -2316,10 +2416,9 @@ namespace StringDiagram
 
 
             double rulerHeight = Root.ActualHeight > 0 ? Root.ActualHeight : ConTainerHeight;
-            //double rulerWidth = ruler.ActualWidth > 0 ? ruler.ActualWidth : 50;
-            double rulerWidth = 60;
+            double requiredWidth = 0.0;
 
-            ruler.Width = rulerWidth;
+            ruler.Width = 0;
             ruler.Height = rulerHeight;
 
             // 整体最顶 / 最底的像素 Y
@@ -2364,6 +2463,10 @@ namespace StringDiagram
                     Foreground = FontBrush,
                     FontSize = fontSize
                 };
+                // 供“选中分段时，右侧标尺刻度文字变色”使用
+                tb.Tag = valueFromBottom;
+                tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                requiredWidth = Math.Max(requiredWidth, tickEndX + textLeftGap + tb.DesiredSize.Width + 2);
 
                 Canvas.SetLeft(tb, tickEndX + textLeftGap);
                 Canvas.SetTop(tb, y - tb.FontSize * 0.7);
@@ -2407,6 +2510,8 @@ namespace StringDiagram
 
             // 顶部 totalLength
             DrawTick(yTop, totalLength);
+
+            ruler.Width = Math.Max(20, requiredWidth);
         }
 
 
@@ -2424,12 +2529,9 @@ namespace StringDiagram
 
 
             double rulerHeight = Root.Height > 0 ? Root.Height : ConTainerHeight;
-            //double rulerWidth = ruler.ActualWidth > 0 ? ruler.ActualWidth : 50;
-            double rulerWidth = 60;
+            double requiredWidth = 0.0;
 
-
-
-            ruler.Width = rulerWidth;
+            ruler.Width = 0;
             ruler.Height = rulerHeight;
 
             double lineX = 10;          // 所有 CT 共用同一个 X
@@ -2457,6 +2559,10 @@ namespace StringDiagram
                     Foreground = FontBrush,
                     FontSize = fontSize
                 };
+                // 供“选中分段时，右侧标尺刻度文字变色”使用
+                tb.Tag = valueFromBottom;
+                tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                requiredWidth = Math.Max(requiredWidth, tickEndX + textLeftGap + tb.DesiredSize.Width + 2);
 
                 Canvas.SetLeft(tb, tickEndX + textLeftGap);
                 Canvas.SetTop(tb, y - tb.FontSize * 0.7);
@@ -2526,13 +2632,79 @@ namespace StringDiagram
                 // 顶部 ctLength
                 DrawTick(yTopCt, ctLength);
             }
+
+            ruler.Width = Math.Max(20, requiredWidth);
         }
 
         #endregion
 
+        private void UpdateRulerSelectedSectionTextColor()
+        {
+            if (ruler == null)
+                return;
 
+            foreach (var child in ruler.Children)
+            {
+                if (child is TextBlock tb)
+                    tb.Foreground = FontBrush;
+            }
 
+            if (_selectedCTIndex < 0 || _selectedSectionIndex < 0)
+                return;
 
+            double topDepth;
+            double bottomDepth;
+
+            if (RulerMode == RulerMode.Global)
+            {
+                GetSectionDepthValuesFromBottom(_selectedCTIndex, _selectedSectionIndex, out topDepth, out bottomDepth);
+            }
+            else
+            {
+                GetSectionDepthValuesFromBottom_PerCT(_selectedCTIndex, _selectedSectionIndex, out topDepth, out bottomDepth);
+            }
+
+            double topRounded = Math.Round(topDepth, 1);
+            double bottomRounded = Math.Round(bottomDepth, 1);
+
+            foreach (var child in ruler.Children)
+            {
+                if (child is TextBlock tb && tb.Tag is double v)
+                {
+                    double vRounded = Math.Round(v, 1);
+                    if (vRounded == topRounded || vRounded == bottomRounded)
+                        tb.Foreground = Brushes.Red;
+                }
+            }
+        }
+
+        private void GetSectionDepthValuesFromBottom_PerCT(int ctIndex, int sectionIndex, out double topDepth, out double bottomDepth)
+        {
+            topDepth = 0.0;
+            bottomDepth = 0.0;
+
+            if (ctIndex < 0 || ctIndex >= CTs.Count)
+                return;
+
+            var ct = CTs[ctIndex];
+            if (sectionIndex < 0 || sectionIndex >= ct.Count)
+                return;
+
+            double ctLength = 0.0;
+            foreach (var sec in ct)
+                ctLength += sec.Length;
+
+            if (ctLength <= 0)
+                return;
+
+            double accBefore = 0.0;
+            for (int i = 0; i < sectionIndex; i++)
+                accBefore += ct[i].Length;
+
+            double sectionLength = ct[sectionIndex].Length;
+            topDepth = ctLength - accBefore;
+            bottomDepth = ctLength - (accBefore + sectionLength);
+        }
 
         /// <summary>
         /// 设置选中效果
@@ -2576,13 +2748,15 @@ namespace StringDiagram
                     if (cur.InsideShape != null)
                         cur.InsideShape.Fill = SectionSelectedBrush;
 
-                    DrawSelectedSectionGuides(cur);
                     DrawSelectedSectionFreeWelds(cur);
 
                     if (raiseEvent)
                         OnSelectedSectionhandler?.Invoke(ctIndex, sectionIndex);
                 }
             }
+
+            // 选中态改为：右侧标尺对应的上下刻度文字变红
+            UpdateRulerSelectedSectionTextColor();
         }
 
         private void DrawSelectedSectionGuides(SectionRegion region)
@@ -2592,7 +2766,7 @@ namespace StringDiagram
 
             // 从分段左上/左下两点向左画短线，再向左留出文本间距显示深度值
             const double guideWidth = 15.0;
-            const double textGap = 20.0;
+            const double textGap = 5.0;
 
             double yTop = region.Bounds.Top;
             double yBottom = region.Bounds.Bottom;
@@ -2806,7 +2980,6 @@ namespace StringDiagram
 
         #endregion
 
-
         #region 事件
         private void Root_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -2835,7 +3008,7 @@ namespace StringDiagram
 
         private void Zone_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (!_zoneMode || Zone == null)
+            if (_zoneModeCTIndices.Count == 0 || Zone == null)
                 return;
 
             // 点击降额示意图时，先清理分段引导选中效果
@@ -2845,7 +3018,8 @@ namespace StringDiagram
                 rect.Tag is ZoneVisualTag tag &&
                 !tag.IsOverlay)
             {
-                SetSelectedZoneByIndex(tag.ZoneIndex);
+                Console.WriteLine("手动选中，触发委托");
+                SetSelectedZoneByIndex(tag.ZoneIndex, true);
                 e.Handled = true;
             }
         }

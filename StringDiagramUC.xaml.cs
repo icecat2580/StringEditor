@@ -56,6 +56,10 @@ namespace StringDiagram
                 OnSelectedSectionhandler?.Invoke(ct, sec);
             _Horizontal.OnSelectedSectionhandler += (ct, sec) =>
                 OnSelectedSectionhandler?.Invoke(ct, sec);
+            _Vertical.OnSelectedZonehandler += (ct, zoneIndex) =>
+                OnSelectedZonehandler?.Invoke(ct, zoneIndex);
+            _Horizontal.OnSelectedZonehandler += (ct, zoneIndex) =>
+                OnSelectedZonehandler?.Invoke(ct, zoneIndex);
         }
 
         private void UpdateContent()
@@ -67,6 +71,7 @@ namespace StringDiagram
                 : (Control)_Horizontal;
         }
 
+    
 
         #region  依赖属性转发到对应的内部控件
 
@@ -588,6 +593,7 @@ namespace StringDiagram
         #region IStringEditor 实现 —— 全部转发给 _current
 
         public event Action<int, int> OnSelectedSectionhandler;
+        public event Action<int, int> OnSelectedZonehandler;
 
         public void InsertSection(int ctIndex, int sectionIndex,
             double length,
@@ -650,17 +656,17 @@ namespace StringDiagram
         public void SetDebugMode(bool DebugMode)
             =>_current.SetDebugMode(DebugMode);
 
-        public void SetZoneMode(bool isZoneMode)
-            => _Vertical?.SetZoneMode(isZoneMode);
+        public void SetZoneMode(int CTIndex, bool isZoneMode)
+            => _Vertical?.SetZoneMode(CTIndex, isZoneMode);
 
-        public void InsertZone(double startPos, double endPos, double zoneValue)
-            => _Vertical?.InsertZone(startPos, endPos, zoneValue);
+        public void InsertZone(int CTIndex, int ZoneIndex, double startPos, double endPos, double zoneValue)
+            => _Vertical?.InsertZone(CTIndex, ZoneIndex, startPos, endPos, zoneValue);
 
-        public void SelectZone(double startPos, double endPos, double zoneValue)
-            => _Vertical?.SelectZone(startPos, endPos, zoneValue);
+        public void SelectZone(int CTIndex, int ZoneIndex)
+            => _Vertical?.SelectZone(CTIndex, ZoneIndex);
 
-        public void ClearZone()
-            => _Vertical?.ClearZone();
+        public void ClearZone(int CTIndex)
+            => _Vertical?.ClearZone(CTIndex);
         #endregion
 
 

@@ -25,6 +25,7 @@ namespace StringDiagram
         private readonly List<CtTopImageInfo> _ctTopImages = new List<CtTopImageInfo>();
 
         public event Action<int, int> OnSelectedSectionhandler;
+        public event Action<int, int> OnSelectedZonehandler;
 
         // 长度方向缩放（X 轴）
         public double MeterToPixel { get; set; } = 1 * 10000;
@@ -809,22 +810,22 @@ namespace StringDiagram
         }
 
         /// <summary>横向图暂不绘制降额带，忽略。</summary>
-        public void SetZoneMode(bool isZoneMode)
+        public void SetZoneMode(int CTIndex, bool isZoneMode)
         {
         }
 
         /// <summary>横向图暂不绘制降额带，忽略。</summary>
-        public void InsertZone(double startPos, double endPos, double zoneValue)
+        public void InsertZone(int CTIndex, int ZoneIndex, double startPos, double endPos, double zoneValue)
         {
         }
 
         /// <summary>横向图暂不支持降额选中，忽略。</summary>
-        public void SelectZone(double startPos, double endPos, double zoneValue)
+        public void SelectZone(int CTIndex, int ZoneIndex)
         {
         }
 
         /// <summary>横向图无降额绘制，忽略。</summary>
-        public void ClearZone()
+        public void ClearZone(int CTIndex)
         {
         }
 

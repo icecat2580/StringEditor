@@ -23,10 +23,7 @@
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
-    <Grid
-        x:Name="LayoutRoot"
-        Width="180"
-        ClipToBounds="False">
+    <Grid x:Name="LayoutRoot" ClipToBounds="False">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto">
             </ColumnDefinition>

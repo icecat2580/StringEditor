@@ -5,6 +5,8 @@ namespace StringDiagram.Models
     /// </summary>
     public sealed class DeratingZoneItem
     {
+        public int CTIndex { get; set; }
+        public int ZoneIndex { get; set; }
         public double StartPos { get; set; }
         public double EndPos { get; set; }
         /// <summary>降额强度 0～1，用于控制填充不透明度。</summary>

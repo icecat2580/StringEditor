@@ -46,6 +46,8 @@ namespace StringDiagram.Interfaces
 
         //选中分段时触发委托
         event Action<int, int> OnSelectedSectionhandler;
+        //选中降额时触发委托(返回参数对应连续管索引，降额索引)
+        event Action<int, int> OnSelectedZonehandler;
 
         //分段选中
         void SetSelectedSection(int CTindex, int Sectionindex,bool RaiseEvent=false);
@@ -88,21 +90,25 @@ namespace StringDiagram.Interfaces
         //是否切换到调试模式(true显示绘图区域，false不显示绘图区域)
         void SetDebugMode(bool DebugMode);
         //切换到降额显示模式，默认为false
-        void SetZoneMode(bool IsZoneMode);
+        void SetZoneMode(int CTIndex, bool IsZoneMode);
         /// <summary>
         /// 插入降额信息
         /// </summary>
-        /// <param name="StartPos">从滚筒端开始的起始位置</param>
-        /// <param name="EndPos">从滚筒端开始的结束位置</param>
+        /// <param name="CTIndex">连续管索引</param>
+        /// <param name="ZoneIndex">当前连续管下的降额索引</param>
+        /// <param name="StartPos">从当前连续管（CTIndex）滚筒端起算的起始位置</param>
+        /// <param name="EndPos">从当前连续管（CTIndex）滚筒端起算的结束位置</param>
         /// <param name="ZoneValue">当前的降额值（0到1）</param>
-        void InsertZone(double StartPos,double EndPos,double ZoneValue);
+        void InsertZone(int CTIndex, int ZoneIndex, double StartPos,double EndPos,double ZoneValue);
         /// <summary>
         /// 设置选中的降额段（与连续管分段选中互斥）。
-        /// 若参数无效（如负数、NaN、ZoneValue 不在 0～1、区间长度为零等），则取消降额选中。
+        /// 若参数无效（如负数、NaN、区间长度为零等），则取消降额选中。
         /// </summary>
-        void SelectZone(double StartPos,double EndPos,double ZoneValue);
-        /// <summary>清空所有降额数据与绘制（连续管内降额带、Zone 示意图、降额选中效果）。</summary>
-        void ClearZone();
+        /// <param name="CTIndex">连续管索引</param>
+        /// <param name="ZoneIndex">当前连续管下的降额索引</param>
+        void SelectZone(int CTIndex, int ZoneIndex);
+        /// <summary>清空指定连续管的降额数据与绘制（连续管内降额带、Zone 示意图、降额选中效果）。</summary>
+        void ClearZone(int CTIndex);
       
     }
 }
